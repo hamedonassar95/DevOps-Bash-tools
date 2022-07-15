@@ -1,45 +1,26 @@
-#
-#  Author: Hari Sekhon
-#  Date: 2020-02-23 23:30:14 +0000 (Sun, 23 Feb 2020)
-#  Original: H1 2016 (Circle CI 1.x)
-#
-#  vim:ts=2:sts=2:sw=2:et
-#
-#  https://github.com/HariSekhon/DevOps-Bash-tools
-#
-#  License: see accompanying Hari Sekhon LICENSE file
-#
-#  If you're using my code you're welcome to connect with me on LinkedIn and optionally send me feedback to help steer this or other code I publish
-#
-#  https://www.linkedin.com/in/HariSekhon
-#
-
-# Master Template with more advanced config:
-#
-#   https://github.com/HariSekhon/Templates/blob/master/circleci_config.yml
-
-# Reference:
-#
-#   https://circleci.com/docs/2.0/configuration-reference
-
+# Use the latest 2.1 version of CircleCI pipeline process engine.
+# See: https://circleci.com/docs/2.0/configuration-reference
 version: 2.1
 
-workflows:
-  version: 2
-  workflow:
-    jobs:
-      - build
-
+# Define a job to be invoked later in a workflow.
+# See: https://circleci.com/docs/2.0/configuration-reference/#jobs
 jobs:
-  build:
+  say-hello:
+    # Specify the execution environment. You can specify an image from Dockerhub or use one of our Convenience Images from CircleCI's Developer Hub.
+    # See: https://circleci.com/docs/2.0/configuration-reference/#docker-machine-macos-windows-executor
     docker:
-      - image: cimg/base:2021.04
-    resource_class: small
+      - image: cimg/base:stable
+    # Add steps to the job
+    # See: https://circleci.com/docs/2.0/configuration-reference/#steps
     steps:
       - checkout
-      - setup_remote_docker:
-          version: 20.10.11
-      - run: setup/ci_bootstrap.sh
-      - run: make init
-      - run: make
-      - run: make test
+      - run:
+          name: "Say hello"
+          command: "echo Hello, World!"
+
+# Invoke jobs via workflows
+# See: https://circleci.com/docs/2.0/configuration-reference/#workflows
+workflows:
+  say-hello-workflow:
+    jobs:
+      - say-hello
