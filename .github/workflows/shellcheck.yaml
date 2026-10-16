@@ -43,9 +43,10 @@ jobs:
     name: Shared Bash checks
     permissions:
       contents: read
-    uses: hamedonassar95/Devobs/.github/workflows/reusable-bash-ci.yml@c9f1a81126aec17175f65b966cf954589691a0db
+    uses: hamedonassar95/Devobs/.github/workflows/reusable-bash-ci.yml@64e74ec031b8ffda3bb4ec04766482382b0a17ff
     with:
       working_directory: .
+      scan_mode: ${{ github.event_name == 'workflow_dispatch' && 'all' || 'changed' }}
       shellcheck_severity: warning
 
   validate-shellcheck:
