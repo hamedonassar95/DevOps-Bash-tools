@@ -30,11 +30,6 @@ on:
       - '**/*.sh'
       - .github/workflows/shellcheck.yaml
   workflow_dispatch:
-    inputs:
-      debug:
-        type: boolean
-        required: false
-        default: false
 
 permissions:
   contents: read
@@ -45,10 +40,30 @@ concurrency:
 
 jobs:
   shellcheck:
-    # github.event.repository context not available in scheduled workflows
-    #if: github.event.repository.fork == false
-    if: github.repository_owner == 'HariSekhon'
-    name: ShellCheck
-    uses: HariSekhon/GitHub-Actions/.github/workflows/shellcheck.yaml@master
+    name: Shared Bash checks
+    permissions:
+      contents: read
+    uses: hamedonassar95/Devobs/.github/workflows/reusable-bash-ci.yml@64e74ec031b8ffda3bb4ec04766482382b0a17ff
     with:
-      debug: ${{ github.event.inputs.debug }}
+      working_directory: .
+      scan_mode: ${{ github.event_name == 'workflow_dispatch' && 'all' || 'changed' }}
+      shellcheck_severity: warning
+
+  validate-shellcheck:
+    name: ShellCheck
+    if: always()
+    needs: shellcheck
+    runs-on: ubuntu-24.04
+    timeout-minutes: 2
+    permissions:
+      contents: read
+    steps:
+      - name: Require shared Bash checks to pass
+        env:
+          SHARED_RESULT: ${{ needs.shellcheck.result }}
+        run: |
+          set -euo pipefail
+          if [[ "$SHARED_RESULT" != "success" ]]; then
+            echo "::error::Shared Bash CI did not succeed: $SHARED_RESULT"
+            exit 1
+          fi
