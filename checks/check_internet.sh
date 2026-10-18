@@ -75,7 +75,7 @@ configure_sites_to_test(){
         return
     fi
     # China detection is best effort and ignore if it fails and just stick with the defaults
-    country="$(curl -sS https://ifconfig.co/json | jq -r '.country' || :)"
+    country="$(curl -s https://ifconfig.co/json | jq -r '.country' || :)"
 
     if [ "$country" = "China" ]; then
         timestamp "Configuring Site Tests: for China"
@@ -83,7 +83,7 @@ configure_sites_to_test(){
         public_ip="111.63.65.103"
         websites="baidu.com $important_websites"
     else
-        timestamp "Configuring Site Tests: Default"
+        #timestamp "Configuring Site Tests: Default"
         domain="google.com"
         public_ip="1.1.1.1"
         websites="google.com $important_websites"
