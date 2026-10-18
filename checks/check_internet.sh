@@ -75,7 +75,7 @@ configure_sites_to_test(){
         return
     fi
     # China detection is best effort and ignore if it fails and just stick with the defaults
-    country="$(curl -s https://ifconfig.co/json | jq -r '.country' || :)"
+    country="$(curl -s https://ifconfig.co/json 2>/dev/null | jq -r '.country' || :)"
 
     if [ "$country" = "China" ]; then
         timestamp "Configuring Site Tests: for China"
