@@ -118,7 +118,7 @@ check_public_ip() {
     if ping -c "$ping_count" -W "$ping_timeout" "$public_ip" &>/dev/null; then
         timestamp "OK: Public IP reachable"
     else
-        timestamp "FAIL: Public IP '$public_ip' unreachable"
+        timestamp "FAIL: Public IP '$public_ip' unreachable (possible gateway egress filter, ignoring)"
         return
     fi
 }
