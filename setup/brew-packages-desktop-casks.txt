@@ -45,5 +45,6 @@ transmission
 tor-browser
 vagrant
 virtualbox
+vlc
 vnc-viewer
 wireshark  # installs GUI, without cask only install CLI utils like tshark
