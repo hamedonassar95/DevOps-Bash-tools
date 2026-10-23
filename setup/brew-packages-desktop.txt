@@ -9,7 +9,6 @@
 #
 # Many of these are now available in brew casks - TODO: test and move to brew-packages-desktop-casks.txt
 #
-# Chrome
 # Docker Desktop
 # Google Drive
 # RStudio
@@ -24,7 +23,6 @@
 # Sublime Text 2
 # SynergyOSX
 # TunnelBlick
-# VLC
 # WindowWrangler?
 # Wireshark
 # iPhone Explorer
