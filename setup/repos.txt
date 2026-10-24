@@ -27,13 +27,22 @@
 # ":local_dir" is optional in case you want to shorten the local directory name, lowercase it or change it for any reason such as daily convenience
 #
 
+HariSekhon:harisekhon
+#Knowledge-Base:knowledge
+Environments:environments
+TamperMonkey:tampermonkey
+Hammerspoon:hammerspoon
+MPV-Scripts:mpvscripts
 # order repos by dependent submodule repos first
+GitHub-Actions-Contexts:contexts
+SQL-keywords:sql-keywords
 GitHub-Actions:github-actions
 Jenkins:jenkins
+Vagrant:vag
 SQL-scripts:sql
-SQL-keywords:sql-keywords
 Kubernetes-configs:k8s
 Terraform:terraform
+Packer:pack
 Templates:templates
 TeamCity-CI:teamcity
 DevOps-Bash-tools:bash-tools
@@ -42,19 +51,20 @@ DevOps-Bash-tools:bash-tools
 lib
 pylib
 lib-java:libj
+Nagios-Plugin-Kafka:nagios-plugin-kafka
 
+Ansible:ansible
+Diagrams-as-Code:diagrams
 DevOps-Golang-tools:go-tools
 DevOps-Perl-tools:perl-tools
 DevOps-Python-tools:pytools
 Spotify-tools:spotify-tools
 Spotify-Playlists:playlists
 #Spark-Apps:spark-apps
+Template-repo:trepo
 
 HAProxy-configs:haproxy-configs
 
 Dockerfiles
 
-Nagios-Plugin-Kafka:nagios-plugin-kafka
-
-# biggest repo last
 Nagios-Plugins:nagios-plugins

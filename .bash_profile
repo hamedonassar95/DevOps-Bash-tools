@@ -17,7 +17,7 @@ if [ -f ~/.bashrc ]; then
 fi
 
 # not supported in the tmux terminal in GCP Cloud Shell
-#if ! isMac &&
+#if ! is_mac &&
 #   ! isGoogleCloudShell &&
 #   [ "${TERM:-}" != "xterm-256color" ]; then
 #    setterm -blank 0
@@ -26,9 +26,9 @@ fi
 # prints a cool spinning welcome message which shows the time of last login
 # this is available in the Python / Perl and Golang Devops Tools repos,
 # as well as a function in .bash.d/welcome.sh in the DevOps Bash Tools repo
-if type welcome &>/dev/null; then
-    welcome
-fi
+#if type welcome &>/dev/null; then
+#    welcome
+#fi
 
 #eval "$(rbenv init -)"
 
@@ -37,9 +37,11 @@ fi
 
 #sudo setmixer -V pcm 100
 
+complete -C /usr/local/bin/terragrunt terragrunt
+
 # ============================================================================ #
-# This should be automatically added to ~/.bash_profile when you install SDKman (setup/install_sdkman.sh):
+# This should be automatically added to ~/.bash_profile when you install SDKman (install/install_sdkman.sh):
 #
-##THIS MUST BE AT THE END OF THE FILE FOR SDKMAN TO WORK!!!
-#export SDKMAN_DIR="/Users/hari.sekhon/.sdkman"
-#[[ -s "/Users/<user>/.sdkman/bin/sdkman-init.sh" ]] && source "/Users/<user>/.sdkman/bin/sdkman-init.sh"
+#THIS MUST BE AT THE END OF THE FILE FOR SDKMAN TO WORK!!!
+export SDKMAN_DIR="$HOME/.sdkman"
+[[ -s "/Users/<user>/.sdkman/bin/sdkman-init.sh" ]] && source "/Users/<user>/.sdkman/bin/sdkman-init.sh"

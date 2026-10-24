@@ -37,13 +37,18 @@ fi
 #fi
 
 if ! type basedir &>/dev/null; then
-    # shellcheck disable=SC1090
+    # shellcheck disable=SC1090,SC1091
     . "$bash_tools/.bash.d/functions.sh"
 fi
 
 if type -P gh &>/dev/null; then
     autocomplete gh -s
 fi
+
+# shellcheck disable=SC1091
+#type add_PATH &>/dev/null || . "$bash_tools/.bash.d/paths.sh"
+
+#add_PATH ~/bin/codeql
 
 # find out who your 'gh' CLI is authenticating as - useful if you have multiple Personal Access Tokens for different environments
 alias githubwhoami='github_api.sh /user | jq -r .login'
@@ -68,7 +73,12 @@ alias gitrc=gitconfig
 # shellcheck disable=SC2032
 #alias add=gitadd
 add(){ gitadd "$@"; }
+addf(){
+    git add -f "$@"
+    git ci -m "added $*"
+}
 alias gadd='git add'
+# beware covers up ImageMagick 'import' screenshot command (see HariSekhon/Knowledge-Base mac.md page)
 alias import=gitimport
 alias co=checkout
 alias commit="git commit"
@@ -95,11 +105,15 @@ alias br=branch
 alias fetch='git fetch'
 alias stash="git stash"
 alias tag="githg tag"
+alias tags='git tag'
+alias tagr='git_tag_release.sh'
 alias gitlogwc='git log --oneline | wc -l'
-alias um=updatemodules
+alias um=git_submodules_update.sh
 #type browse &>/dev/null || alias browse=gbrowse
 alias gbrowse=gitbrowse
 alias gb='gitbrowse'
+alias prbrowse='gh pr view --web'  # uses GitHub CLI
+alias prb=prbrowse
 #alias gh='gitbrowse github'  # clashes with GitHub CLI
 alias gl='gitbrowse gitlab'
 alias bb='gitbrowse bitbucket'
@@ -108,6 +122,9 @@ alias gha='gitbrowse github actions'
 alias ghw='github_workflows'
 alias wf='cd $(git_root)/.github/workflows/'
 alias ggrep="git grep"
+alias gfr='git_foreach_repo.sh'
+alias gfrur='git_foreach_repo_update_readme.sh'
+alias gfrrra='git_foreach_repo_replace_readme_actions.sh'
 alias remotes='git remote -v'
 alias remote='remotes'
 # much quicker to just 'cd $github; f <pattern>'
@@ -135,24 +152,47 @@ alias prune="removed_branches | xargs -r git branch -d"
 # don't use this unless you are a git pro and understand unwinding history and merge conflicts
 alias GRH="git reset HEAD^"
 
+alias gitnored='git status --ignored'
+
 alias master="switchbranch master"
+alias main="switchbranch main"
 alias prod="switchbranch prod"
 alias production="switchbranch production"
 alias staging="switchbranch staging"
 alias stage=staging
 alias dev="switchbranch dev"
+alias develop="switchbranch develop"
+alias grp="git_review_push.sh"
 
 # edit all GitHub READMEs
-alias readmes="\$EDITOR \$(git_foreach_repo.sh echo '\$PWD/README.md')"
+alias readmes='$EDITOR $(git_foreach_repo.sh '"'"'echo $PWD/README.md'"')"
+alias readmesi='idea $(git_foreach_repo.sh '"'"'echo $PWD/README.md'"')"
+alias ureadmes='git_foreach_repo.sh '"'"'gitu README.md || :'"'"
 
 # equivalent of hg root
+# shellcheck disable=SC2120
 git_root(){
+    local path="${1:-.}"
+    local dir
+    if [ -f "$path" ]; then
+        dir="$(dirname "$path")"
+    elif [ -d "$path" ]; then
+        dir="$path"
+    else
+        echo "ERROR: arg passed is not a regular file or directory: $path" >&2
+        return 1
+    fi
+    pushd "$dir" &>/dev/null || return 1
     git rev-parse --show-toplevel
+    popd &>/dev/null || return 1
 }
+alias gitroot=git_root
+alias cdgitroot='cd "$(git_root)"'
 
 gitgc(){
+    cd "$(git_root)" || :
     if ! [ -d .git ]; then
-        echo "not at top of a git repo, not .git/ directory found"
+        echo "not in a git repo, no .git/ directory and git root dir not found"
         return 1
     fi
     du -sh .git
@@ -160,40 +200,102 @@ gitgc(){
     du -sh .git
 }
 
-gitbrowse(){
+git_default_branch(){
+    git remote show origin |
+    #awk '/^[[:space:]]*HEAD branch:[[:space:]]/{print $3}'
+    sed -n '/HEAD branch/s/.*: //p'
+}
+
+git_url_base(){
     local filter="${1:-.*}"
+    git remote -v |
+    { grep "$filter" || : ; }|
+    awk '/git@|https:\/\/|ssh:\/\//{print $2}' |
+    head -n1 |
+    sed 's|^ssh://||;
+         s|^https://.*@||;
+         s|^https://||;
+         s|:[[:digit:]][[:digit:]]*||;
+         s/^git@ssh.dev.azure.com:v3/dev.azure.com/;
+         s|^git@||;
+         s|^|https://|;
+         s/\.git$//;
+         # Azure DevOps only puts this in https urls, not ssh, so strip for standardizing output
+         # Update: actually dont do this because we cannot differentiate internal Azure DevOps
+         # by internal fqdn urls so it is better to leave this in
+         #s|/_git/|/|;
+         ' |
+    perl -pe 's/:(?!\/\/)/\//'
+}
+
+gitbrowse(){
+    local filter="${1:-origin}"
     local path="${2:-}"
     local url_base
-    url_base="$(git remote -v |
-                grep "$filter" |
-                grep origin |
-                awk '/git@|https:/{print $2}' |
-                head -n1 |
-                sed 's|^ssh://||;
-                     s|^https://.*@||;
-                     s|^https://||;
-                     s/^git@ssh.dev.azure.com:v3/dev.azure.com/;
-                     s|^git@||;
-                     s|^|https://|;
-                     s/\.git$//;' |
-                perl -pe 's/:(?!\/\/)/\//')"
-    if [[ "$url_base" =~ dev.azure.com ]]; then
-        url_base="${url_base%/*}/_git/${url_base##*/}"
+    url_base="$(git_url_base "$filter")"
+    if [ -z "$url_base" ] && [ "$filter" != origin ]; then
+        url_base="$(git_url_base "origin")"
     fi
     if [ -z "$url_base" ]; then
-        echo "git remote url not found for $filter"
+        echo -n "git remote url not found for filter '$filter'"
+        if [ "$filter" != "origin" ]; then
+            echo " or 'origin'"
+        else
+            echo
+        fi
         return 1
     fi
-    browser "$url_base/$path"
+    if [ -n "$path" ]; then
+        path="$(git ls-files --full-name "$path")"
+    fi
+    if [[ "$url_base" =~ github.com ]]; then
+        if [ -z "$path" ]; then
+            path+="#readme"
+        fi
+    else
+        if [ -z "$path" ]; then
+            local default_branch
+            default_branch="$(git_default_branch)"
+        fi
+        if [[ "$url_base" =~ gitlab.com ]]; then
+            if [ -z "$path" ]; then
+                url_base+="/-/blob/$default_branch/README.md"
+            fi
+        elif [[ "$url_base" =~ dev.azure.com ]]; then
+            # don't re-add this as it's no longer stripped out in git_url_base
+            # because we cannot differentiate internal Azure Devops by fqdn so need to leave it in
+            #url_base="${url_base%/*}/_git/${url_base##*/}"
+            if [ -z "$path" ]; then
+                url_base+="?path=/README.md&_a=preview"
+            fi
+        elif [[ "$url_base" =~ bitbucket.org ]]; then
+            if [ -z "$path" ]; then
+                url_base+="/src/$default_branch/README.md"
+            fi
+        fi
+    fi
+    url="$url_base"
+    if [ -n "$path" ]; then
+        if [[ "$url_base" =~ github.com ]]; then
+            local default_branch
+            default_branch="$(git_default_branch)"
+            url+="/blob/$default_branch"
+        fi
+        url+="/$path"
+    fi
+    browser "$url"
 }
 
 install_git_completion(){
     if ! [ -f ~/.git-completion.bash ]; then
-        wget -O ~/.git-completion.bash https://raw.githubusercontent.com/git/git/master/contrib/completion/git-completion.bash
+        curl -sSLf \
+             --proto "=https" \
+             -o ~/.git-completion.bash \
+             https://raw.githubusercontent.com/git/git/master/contrib/completion/git-completion.bash
     fi
 }
 
-# shellcheck disable=SC1090
+# shellcheck disable=SC1090,SC1091
 [ -f ~/.git-completion.bash ] && . ~/.git-completion.bash
 
 # usage: gi python,perl,go
@@ -237,8 +339,11 @@ git_repo(){
     git_user_repo | sed 's|.*/||'
 }
 
-github_user_repo(){
+github_owner_repo(){
     git remote -v | awk '/github.com/{print $2}' | head -n1 | git_repo_strip
+}
+github_user_repo(){
+    github_owner_repo
 }
 
 github_repo(){
@@ -266,7 +371,9 @@ isGit(){
         # This is because git command doesn't return correctly when running from outside git root, complains there is not .git
         if [ -d "$target" ]; then
             pushd "$target" >/dev/null || return 1
-            if [ -n "$(git log -1 . 2>/dev/null)" ]; then
+            #if [ -n "$(git log -1 . 2>/dev/null)" ]; then
+            # better because it will succeed in subdirectories of git repos which are not checked in yet
+            if git status &>/dev/null; then
                 # shellcheck disable=SC2164
                 popd &>/dev/null
                 return 0
@@ -274,7 +381,9 @@ isGit(){
         else
             pushd "$(dirname "$target")" >/dev/null || return 1
             #if git log -1 "$target" 2>/dev/null | grep -q '.*'; then
-            if [ -n "$(git log -1 "$(basename "$target")" 2>/dev/null)" ]; then
+            #if [ -n "$(git log -1 "$(basename "$target")" 2>/dev/null)" ]; then
+            # better because it will succeed in subdirectories of git repos which are not checked in yet
+            if git status &>/dev/null; then
                 # shellcheck disable=SC2164
                 popd &>/dev/null
                 return 0
@@ -286,6 +395,9 @@ isGit(){
     fi
 }
 
+git_revision(){
+    echo "Revision: $(git rev-parse HEAD)"
+}
 
 st(){
   # shellcheck disable=SC2086
@@ -322,7 +434,8 @@ st(){
         done
     elif { [ "$target" = "." ] &&
          [ "${PWD##*/}" = work ] ; } ||
-         grep -Fxq "$PWD" <<< "${GIT_BASEDIRS:-}"; then
+         grep -Fxq "$PWD" <<< "${GIT_BASEDIRS:-}" ||
+         [ -f .iterate ]; then
          #ls ./*/.git &>/dev/null; then  # matches inside repos with submodules unfortunately
         hr
         for x in "$target"/*; do
@@ -341,15 +454,17 @@ st(){
             pushd "$target" >/dev/null || { echo "Error: failed to pushd to $target"; return 1; }
             echo "> git stash list" >&2
             git stash list && echo
-            #"$bash_tools/git_summary_line.sh"
+            #"$bash_tools/git/git_summary_line.sh"
             echo "> git status $target $*" >&2
             #git -c color.status=always status -sb . "$@"
             git -c color.status=always status . "$@"
-            echo "Revision: $(git rev-parse HEAD)"
+            echo
+            git_revision
+            echo
         else
             pushd "$target_dirname" >/dev/null || { echo "Error: failed to pushed to '$target_dirname'"; return 1; }
             echo "> git status $target $*" >&2
-            #"$bash_tools/git_summary_line.sh"
+            #"$bash_tools/git/git_summary_line.sh"
             git -c color.status=always status "$target_basename" "$@"
         fi
         #git status "$target" "${*:2}"
@@ -462,10 +577,11 @@ pull(){
             popd &>/dev/null
         done
     elif [ "${PWD##*/}" = work ] ||
-         grep -Fxq "$PWD" <<< "${GIT_BASEDIRS:-}"; then
+         grep -Fxq "$PWD" <<< "${GIT_BASEDIRS:-}" ||
+         [ -f .iterate ]; then
          #ls ./*/.git &>/dev/null; then  # matches inside repos with submodules unfortunately
         for x in *; do
-            [ -d "$x" ] || continue
+            [ -d "$x/.git" ] || continue
             hr
             pushd "$x" >/dev/null || { echo "failed to pushd to '$x'"; return 1; }
             echo "> Work $x: git pull --no-edit $*"
@@ -491,6 +607,17 @@ git_pull(){
     echo
     git submodule update --init --recursive
     echo
+}
+
+alias coj="git_branch_jira_ticket"
+git_branch_jira_ticket(){
+    local ticket="$1"
+    local branch="${ticket##*/}"
+    if git branch | sed 's/^..//' | grep -Fxq "$branch"; then
+        git checkout "$branch"
+    else
+        git checkout -b "$branch"
+    fi
 }
 
 checkout(){
@@ -544,47 +671,8 @@ gitimport(){
 }
 
 
-# shellcheck disable=SC2086
 gitu(){
-    if [ -z "$1" ]; then
-        echo "usage: gitu <file> <file2> ..."
-        return 3
-    fi
-    local basedir
-    local trap_codes="INT ERR"
-    # expand now
-    # shellcheck disable=SC2064
-    trap "popd &>/dev/null; trap - $trap_codes; return 1 2>/dev/null" $trap_codes
-    #targets=("$(strip_basedirs "$basedir" "$targets")")
-    for filename in "$@"; do
-        # follow symlinks to the actual files because diffing symlinks returns no changes
-        filename="$(resolve_symlinks "$filename")"
-        # go to the highest directory level to git diff inside the git repo boundary, otherwise git diff will return nothing
-        basedir="$(basedir "$filename")" || return 1
-        pushd "$basedir" >/dev/null || return 1
-        # XXX: needs -s to return the basename and not the full name
-        changed_files="$(git status --porcelain -s "${filename##*/}" |
-                 grep -e '^M' -e '^.M' |
-                 sed 's/^...//')"
-        # while read line would auto-accepting the readline and commit without prompt :-/
-        for changed_filename in $changed_files; do
-            basename="${changed_filename##*/}"
-            diff="$(git diff --color=always -- "$changed_filename"; git diff --cached --color=always -- "$changed_filename")"
-            if [ -z "$diff" ]; then
-                continue
-            fi
-            echo "$diff" | more -FR
-            echo
-            read -r -p "Hit enter to commit '$changed_filename' or Control-C to cancel" _
-            echo
-            git add -- "$changed_filename" &&
-            echo "committing $changed_filename" &&
-            git commit -m "updated $basename" -- "$changed_filename" ||
-            return 1
-        done
-        popd &>/dev/null || :
-    done
-    trap - $trap_codes
+    git_diff_commit.sh "$@"
 }
 gituu(){
     # avoiding xargs due to function reference:
@@ -667,6 +755,8 @@ push(){
         # exposes your Github / GitLab / Bitbucket tokens on the screen, not secure, use printing above instead
         #git push -v "$@"
         git push "$@"
+        echo
+        st
     elif type isHg &>/dev/null && isHg .; then
         echo "> hg push $*"
         hg push "$@"
@@ -675,9 +765,34 @@ push(){
         return 1
     fi
 }
+unalias pushu 2>/dev/null || :
 pushu(){
-    push "$@" --set-upstream origin "$(git branch | awk '/^\*/{print $2}')"
+    if git remote -v | grep -qi '^origin[[:space:]].*gitlab\.'; then
+        "$bash_tools/gitlab/gitlab_push_mr_preview.sh"
+    else
+        "$bash_tools/github/github_push_pr_preview.sh"
+    fi
 }
+unalias pushup 2>/dev/null || :
+pushup(){
+    if git remote -v | grep -qi '^origin[[:space:]].*gitlab\.'; then
+        "$bash_tools/gitlab/gitlab_push_mr.sh"
+    else
+        "$bash_tools/github/github_push_pr.sh"
+    fi
+}
+unalias pushupmerge 2>/dev/null || :
+pushupmerge(){
+    if git remote -v | grep -qi '^origin[[:space:]].*gitlab\.'; then
+        GITLAB_MERGE_PULL_REQUEST=true \
+        "$bash_tools/gitlab/gitlab_push_mr.sh"
+    else
+        GITHUB_MERGE_PULL_REQUEST=true \
+        "$bash_tools/github/github_push_pr.sh"
+    fi
+}
+alias pushupm=pushupmerge
+
 pushr(){
     for remote in $(git remote); do
         echo "> git push \"$remote\""
@@ -685,6 +800,26 @@ pushr(){
         echo
     done
 }
+
+alias pr=github_pull_request_create.sh
+
+alias mup=masterupdateprune
+masterupdateprune(){
+    #local master_branch="master"
+    #if git branch | sed 's/^..//' | grep -Fx main; then
+    #    master_branch="main"
+    #fi
+    git checkout "$(git_default_branch)"
+    pull
+    prune
+    git_revision
+    echo
+}
+
+current_branch(){
+    git rev-parse --abbrev-ref HEAD
+}
+alias currentbranch=current_branch
 
 switchbranch(){
     if isGit "."; then
@@ -698,18 +833,40 @@ switchbranch(){
 }
 
 gitrm(){
-    git rm "$@" &&
-    git commit -m "removed $*" "$@"
+    git rm -- "$@" &&
+    git commit -m "removed $*" -- "$@"
 }
 
 gitrename(){
-    git mv "$1" "$2" &&
+    if [ $# -ne 2 ]; then
+        echo "usage: gitrename <original_filename> <new_filename>"
+        return 1
+    fi
+    if [ -f "$2" ]; then
+        local file_already_exists=1
+        mv -iv -- "$2" "$2.tmp"
+    fi
+    git mv -- "$1" "$2" &&
     git commit -m "renamed $1 to $2" "$1" "$2"
+    if [ "${file_already_exists:-}" = 1 ]; then
+        mv -fv -- "$2.tmp" "$2"
+    fi
 }
 
 gitmv(){
-    git mv "$1" "$2" &&
+    if [ $# -ne 2 ]; then
+        echo "usage: gitmv <original_filename> <new_filename>"
+        return 1
+    fi
+    if [ -f "$2" ]; then
+        local file_already_exists=1
+        mv -iv -- "$2" "$2.tmp"
+    fi
+    git mv -- "$1" "$2" &&
     git commit -m "moved $1 to $2" "$1" "$2"
+    if [ "${file_already_exists:-}" = 1 ]; then
+        mv -fv -- "$2.tmp" "$2"
+    fi
 }
 
 gitd(){
@@ -780,75 +937,6 @@ gitfind(){
     done | sort -u
 }
 
-# useful for smaller things:
-#
-# git submodule foreach --recursive 'git checkout master && git pull'
-#
-updatemodules(){
-    if isGit .; then
-        git pull --no-edit
-        #git submodule update --init --remote
-        for submodule in $(git submodule | awk '{print $2}'); do
-            if [ -d "$submodule" ] && ! [ -L "$submodule" ]; then
-                pushd "$submodule" || continue
-                git stash
-                git checkout master
-                git pull --no-edit
-                git submodule update
-                # shellcheck disable=SC2164
-                popd
-            fi
-        done
-        echo
-        for submodule in $(git submodule | awk '{print $2}'); do
-            if [ -d "$submodule" ] && ! [ -L "$submodule" ] && ! git status "$submodule" | grep -q nothing; then
-                git commit -m "updated $submodule" "$submodule" || break
-            fi
-        done &&
-        make updatem ||
-        echo FAILED
-        echo
-        for submodule in $(git submodule | awk '{print $2}'); do
-            if [ -d "$submodule" ] && ! [ -L "$submodule" ]; then
-                pushd "$submodule" || continue
-                git stash pop
-                # shellcheck disable=SC2164
-                popd
-            fi
-        done
-    else
-        echo "Not a Git repository! "
-        return 1
-    fi
-}
-
-upl(){
-    local repos="pylib pytools lib tools bash-tools nagios-plugins npk"
-    # pull all repos first so can handle merge requests if needed
-    for repo in $repos; do
-        echo
-        echo "* Pulling latest repo changes:  $repo"
-        echo
-        pushd "$github/$repo" &&
-        git pull --no-edit &&
-        popd &&
-        hr || return 1
-    done
-    echo
-    echo "UNATTEND FROM HERE"
-    echo
-    for repo in $repos; do
-        echo
-        echo "* Performing latest submodule updates:  $repo"
-        echo
-        pushd "$github/$repo" &&
-        ! updatemodules 2>&1 | tee /dev/stderr | grep -e ERROR -e FAIL &&
-        git push &&
-        popd &&
-        hr || return 1
-    done
-}
-
 #stagemerge(){
 #    if isGit "."; then
 #        git checkout prod    && git pull &&
@@ -913,9 +1001,9 @@ git_rm_untracked(){
             # you must set 'git config --global core.quotePath false' for this to work properly
             #
             # this doesn't help because you are still stuck with \xxx chars throughout
-            #filename="${filename#\"}"
-            #filename="${filename%\"}"
-            rm -v "$filename" || break
+            filename="${filename#\"}"
+            filename="${filename%\"}"
+            rm -v -- "$filename" || break
         done
     done
 }
@@ -924,7 +1012,7 @@ git_rm_untracked(){
 foreachrepo(){
     local repolist="${REPOLIST:-$bash_tools/setup/repos.txt}"
     while read -r repo; do
-        eval "$@"
+        "$@"
     done < <(sed 's/#.*$//; s/.*://; /^[[:space:]]*$/d' "$repolist")
 }
 

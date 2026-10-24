@@ -42,6 +42,19 @@ echo "backing up mac settings to $backup before applying new settings"
 defaults read > "$backup"
 
 # ============================================================================ #
+# Use High Power Mode when on power adapter
+sudo pmset -a powermode 2
+
+# ============================================================================ #
+# Set Dark Theme without requiring restart
+
+# will prompt to allow Terminal to control System Events which is useful to enable anyway for Apple Scripting eg. ../applescript/*.scpt
+osascript -e 'tell app "System Events" to tell appearance preferences to set dark mode to 1'
+
+# toggle between light and dark theme by setting it to the opposite of its current setting
+#osascript -e 'tell app "System Events" to tell appearance preferences to set dark mode to not dark mode'
+
+# ============================================================================ #
 
 # References:
 #
@@ -61,8 +74,10 @@ defaults read > "$backup"
 # before dropping in to the new config to explore the full settings paths
 
 # "Apple Global Domain" === NSGlobalDomain
+defaults write NSGlobalDomain AppleActionOnDoubleClick Maximize
 defaults write NSGlobalDomain AppleInterfaceStyle -string Dark
 defaults write NSGlobalDomain AppleEnableMenuBarTransparency -bool true
+defaults write NSGlobalDomain AppleSpacesSwitchOnActivate 1
 defaults write NSGlobalDomain NSAutomaticWindowAnimationsEnabled -bool false
 defaults write NSGlobalDomain NSQuitAlwaysKeepsWindows -bool true
 defaults write NSGlobalDomain ApplePressAndHoldEnabled -bool false
@@ -118,6 +133,7 @@ defaults write com.apple.touchbar.agent.PresentationModeFnModes.appWithControlSt
 # tap to click
 defaults write com.apple.trackpad forceClick -bool false
 defaults write com.apple.AppleMultitouchTrackpad Clicking -bool false
+defaults write com.apple.AppleMultitouchTrackpad USBMouseStopsTrackpad -int 0
 defaults write com.apple.driver.AppleBluetoothMultitouch.trackpad Clicking -bool false
 
 defaults write com.apple.AppleMultitouchTrackpad TrackpadThreeFingerTapGesture -int 0
@@ -193,6 +209,12 @@ mac_terminal_settings="${mac_terminal_settings/<integer>72</<integer>$LINES<}"
 defaults write com.apple.Terminal "Window Settings" -dict-add Hari "$mac_terminal_settings"
 
 # ============================================================================ #
+#                              T a s k   B a r
+# ============================================================================ #
+
+defaults write com.apple.controlcenter "NSStatusItem Visible Bluetooth" -int 1
+
+# ============================================================================ #
 #               S c r e e n s a v e r   &   H o t   C o r n e r s
 # ============================================================================ #
 
@@ -215,7 +237,11 @@ defaults write com.apple.dock wvous-tr-modifier -int 0
 # ============================================================================ #
 
 # save screenshots to Desktop
-defaults write com.apple.screencapture location -string "${HOME}/Desktop"
+mkdir -p -v ~/Desktop/Screenshots
+# put them under a Screenshots folder, it's cleaner than having them all over your background
+defaults write com.apple.screencapture location -string ~/Desktop/Screenshots
+
+defaults write com.apple.screencapture "show-thumbnail" -bool "true"
 
 # save in PNG format (default, other options: BMP, GIF, JPG, PDF, TIFF)
 defaults write com.apple.screencapture type -string "png"
@@ -233,8 +259,11 @@ defaults write com.apple.screencapture disable-shadow -bool true
 #                                    D o c k
 # ============================================================================ #
 
-# auto-hide dock
+# auto-hide Dock
 defaults write com.apple.dock autohide -bool true
+
+# make Dock appear on all screens - this is important so that cmd-tab window switching appears there too as it follows the Dock screen
+defaults write com.apple.dock appswitcher-all-displays -bool true
 
 # hide non-active apps
 # XXX: careful this wipes out your Dock and reversing it to false doesn't restore your Dock items
@@ -268,8 +297,15 @@ defaults write com.apple.dock show-process-indicators -bool true
 # disable bouncing icons
 defaults write com.apple.dock no-bouncing -bool true
 
+#defaults write com.apple.dock minimize-to-application -bool true
 # don't minimize to applications, it's more obvious when they're on the far right
 defaults write com.apple.dock minimize-to-application -bool false
+
+defaults write com.apple.dock mineffect scale  # faster than 'genie'
+
+# don't leave closed apps in the dock
+defaults write com.apple.dock show-recents -bool no
+defaults write com.apple.dock recent-apps -array # intentionally empty
 
 #killall Dock
 

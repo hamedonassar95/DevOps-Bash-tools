@@ -22,7 +22,7 @@
 
 # this is sourced in .bashrc before .bash.d/*.sh because add_PATH() is used extensively everywhere to deduplicate $PATHs across disparate code and also reloads before it gets to this point in the .bash.d/*.sh lexically ordered list
 
-if type add_PATHS &>/dev/null && [ -n "${PATHS_SET:-}" ]; then
+if type add_PATH &>/dev/null && [ -n "${PATHS_SET:-}" ]; then
     return
 fi
 
@@ -33,34 +33,48 @@ bash_tools="${bash_tools:-$(dirname "${BASH_SOURCE[0]}")/..}"
 
 github="${github:-$HOME/github}"
 
-# shellcheck disable=SC1090
+# shellcheck disable=SC1090,SC1091
 . "$bash_tools/.bash.d/os_detection.sh"
 
 # ============================================================================ #
 
+repaths(){
+    unset PATHS_SET
+    # shellcheck disable=SC1091
+    source "$bash_tools/.bash.d/paths.sh"
+}
+
 #export PATH="${PATH%%:~/github*}"
 add_PATH(){
-    local env_var
-    local path
-    if [ $# -gt 1 ]; then
-        env_var="$1"
-        path="$2"
-    else
-        env_var=PATH
-        path="${1:-}"
-    fi
-    path="${path%/}"
-    path="${path//[[:space:]]/}"
-    if ! [[ "${!env_var}" =~ (^|:)$path(:|$) ]]; then
-        # shellcheck disable=SC2140
-        eval "$env_var"="${!env_var}:$path"
-    fi
-    # to prevent Empty compile time value given to use lib at /Users/hari/perl5/lib/perl5/perl5lib.pm line 17.
-    #PERL5LIB="${PERL5LIB##:}"
-    # fix for Codeship having a space after one of the items in their $PATH, causing the second half of the $PATH to error out as a command
-    eval "$env_var"="${!env_var//[[:space:]]/}"
-    eval "$env_var"="${!env_var##:}"
-    export "${env_var?env_var not defined in add_PATH}"
+    export PATH="$PATH:$1"
+    # this clever stuff kills performance and I want my shell to open faster
+    # it's not worth saving a few duplicates in $PATH
+    # was used by dedupe paths at the end of this file
+    #local env_var
+    #local path
+    #if [ $# -gt 1 ]; then
+    #    env_var="$1"
+    #    path="$2"
+    #else
+    #    env_var=PATH
+    #    path="${1:-}"
+    #fi
+    #path="${path%/}"
+    #path="${path//[[:space:]]/}"
+    #if [[ "$path" =~ \$ ]]; then
+    #    echo "WARNING: skipping add path '$path' for safety"
+    #    return
+    #fi
+    #if ! [[ "${!env_var}" =~ (^|:)$path(:|$) ]]; then
+    #    # shellcheck disable=SC2140
+    #    eval "$env_var"="${!env_var}:$path"
+    #fi
+    ## to prevent Empty compile time value given to use lib at /Users/hari/perl5/lib/perl5/perl5lib.pm line 17.
+    ##PERL5LIB="${PERL5LIB##:}"
+    ## fix for Codeship having a space after one of the items in their $PATH, causing the second half of the $PATH to error out as a command
+    #eval "$env_var"="${!env_var//[[:space:]]/}"
+    #eval "$env_var"="${!env_var##:}"
+    #export "${env_var?env_var not defined in add_PATH}"
 }
 
 # use 'which -a'
@@ -79,6 +93,13 @@ add_PATH(){
 #    done
 #}
 
+# need newer Homebrew curl for --cookies-from-browser functionality
+# Homebrew build wasn't compiled with it anyway - see curl_with_cookies.sh script for a more generic workaround
+# that works with any version of curl
+#if [ -d /opt/homebrew/opt/curl/bin ]; then
+#    PATH="/opt/homebrew/opt/curl/bin:$PATH"
+#fi
+
 add_PATH "/bin"
 add_PATH "/usr/bin"
 add_PATH "/sbin"
@@ -86,22 +107,29 @@ add_PATH "/usr/sbin"
 add_PATH "/usr/local/sbin"
 add_PATH "/usr/local/bin"
 add_PATH "/usr/local/opt/python/libexec/bin"  # Mac brew installed Python, must be ahead of ~/anaconda/bin below
-add_PATH ~/.jx/bin
-#add_PATH "${JX_HOME:-$HOME/.jx}/bin"
+add_PATH "/opt/homebrew/bin/"  # on new M1 Macs
 add_PATH "$bash_tools"
 add_PATH ~/bin
-for x in ~/bin/*; do
-    [ -d "$x" ] || continue
-    if [ -d "$x/bin" ]; then
-        add_PATH "$x/bin"
-    else
+add_PATH ~/.local/bin
+add_PATH ~/venv/bin
+while read -r x; do
+    # much less noisy to just just find the right dirs instead of testing lots of files
+    #[ -d "$x" ] || continue
+    #if [ -d "$x/bin" ]; then
+    #    add_PATH "$x/bin"
+    #else
         add_PATH "$x"
-    fi
-done
+    #fi
+done < <(for x in "$bash_tools" ~/bin; do find "$x" -maxdepth 2 -type d -name bin; done)
 
 # Serverless.com framework
 if [ -d ~/.serverless/bin ]; then
     add_PATH ~/.serverless/bin
+fi
+
+# HomeBrew on Linux
+if [ -d /opt/homebrew/bin ]; then
+    add_PATH /opt/homebrew/bin
 fi
 
 # HomeBrew on Linux
@@ -119,6 +147,18 @@ if [ -d "/home/linuxbrew/.linuxbrew/bin" ]; then
     add_PATH "/home/linuxbrew/.linuxbrew/bin"
 fi
 
+# Rancher Desktop
+if [ -d ~/.rd/bin ]; then
+    add_PATH ~/.rd/bin
+fi
+
+if [ -d ~/.pulumi/bin ]; then
+    add_PATH ~/.pulumi/bin
+fi
+
+#add_PATH "${JX_HOME:-$HOME/.jx}/bin"
+add_PATH ~/.jx/bin
+
 # do the same with MANPATH
 if [ -d ~/man ]; then
     MANPATH=~/man:"${MANPATH:-}"
@@ -130,6 +170,16 @@ fi
 #    add_PATH /Applications/SnowSQL.app/Contents/MacOS
 #fi
 
+# so that you can open files in IntelliJ from the command line: idea <filename>
+if [ -d "/Applications/IntelliJ IDEA CE.app/Contents/MacOS" ]; then
+    add_PATH "/Applications/IntelliJ IDEA CE.app/Contents/MacOS"
+fi
+
+if [ -d "/Applications/Visual Studio Code.app" ]; then
+    # don't need this one as you can just 'code /path/to/filename' to open the file in VS Code
+    #add_PATH "/Applications/Visual Studio Code.app/Contents/MacOS"  # Electron IDE is here
+    add_PATH "/Applications/Visual Studio Code.app/Contents/Resources/app/bin"  # code CLI is here
+fi
 
 # ============================================================================ #
 #                                A n a c o n d a
@@ -168,12 +218,16 @@ fi
 
 # $github defined in aliases.sh
 # shellcheck disable=SC2154
-add_PATH "$github/bash-tools"
-add_PATH "$github/bash-tools/applescript"
-add_PATH "$github/bash-tools/setup"
+add_PATH "$bash_tools"
+while read -r x; do
+    add_PATH "$x"
+done < <(find "$bash_tools" -maxdepth 1 -type d)
 add_PATH "$github/go-tools"
+add_PATH "$github/go"
 add_PATH "$github/go-tools/bin"
+add_PATH "$github/go/bin"
 add_PATH "$github/perl-tools"
+add_PATH "$github/perl"
 add_PATH "$github/pytools"
 add_PATH "$github/tools"
 #add_PATH "$github/tool"
@@ -182,7 +236,7 @@ add_PATH "$github/nagios-plugin-kafka"
 add_PATH "$github/spotify"
 add_PATH "$github/spotify-tools"
 
-if isLinux; then
+if is_linux; then
     add_PATH ~/.buildkite-agent/bin
 fi
 
@@ -204,14 +258,14 @@ link_latest(){
             return 1
         fi
         [ -e "$path_noversion" ] && [ ! -L "$path_noversion" ] && continue
-        if isMac; then
+        if is_mac; then
             local ln_opts="-h"
         else
             local ln_opts="-T"
         fi
         # if you're in 'admin' group on Mac you don't really need to sudo here
         # shellcheck disable=SC2154
-        $sudo ln -vfs $ln_opts "$path" "$path_noversion"
+        $sudo ln -vfs $ln_opts -- "$path" "$path_noversion"
     done
 }
 
@@ -250,7 +304,7 @@ link_latest(){
 #add_PATH "/usr/nagios/libexec"
 #add_PATH "/usr/nagios/libexec/contrib"
 
-#if isMac; then
+#if is_mac; then
 #    # MacPort and Octave installation
 #    add_PATH /opt/local/bin
 #
@@ -327,7 +381,7 @@ link_latest(){
 #export MESOS_HOME=/usr/local/mesos
 #add_PATH "$MESOS_HOME/bin"
 
-#if isMac; then
+#if is_mac; then
 #    export MESOS_NATIVE_JAVA_LIBRARY=/usr/local/mesos/src/.libs/libmesos.dylib
 #else
 #    # check this path
@@ -424,19 +478,27 @@ link_latest(){
 #export ACTIVATOR_HOME=/usr/local/activator-dist
 #add_PATH "$ACTIVATOR_HOME"
 
-dedupe_paths(){
-    local PATH_tmp=""
-    # <( ) only works in Bash, but breaks when sourced from sh
-    # <( ) also ignores errors which don't get passed through the /dev/fd
-    # while read -r path; do
-    #done < <(tr ':' '\n' <<< "$PATH")
-    local IFS=':'
-    for path in $PATH; do
-        add_PATH PATH_tmp "$path"
-    done
-    export PATH="$PATH_tmp"
-}
+# slows down new shells
+#dedupe_paths(){
+#    local var="${1:-PATH}"
+#    local path_tmp=""
+#    # <( ) only works in Bash, but breaks when sourced from sh
+#    # <( ) also ignores errors which don't get passed through the /dev/fd
+#    # while read -r path; do
+#    #done < <(tr ':' '\n' <<< "$PATH")
+#    local IFS=':'
+#    for path in ${!var}; do
+#        if [[ "$path" =~ ^[[:space:]]*$ ]]; then
+#            continue
+#        fi
+#        if ! [[ "$path_tmp" =~ :$path(:|$) ]]; then
+#            path_tmp="$path_tmp:$path"
+#        fi
+#    done
+#    eval export "$var"="\"$path_tmp\""
+#}
 
-dedupe_paths
+# call in z_final.sh
+#dedupe_paths
 
 export PATHS_SET=1

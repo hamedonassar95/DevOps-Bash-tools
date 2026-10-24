@@ -8,7 +8,8 @@
 #
 #  License: see accompanying Hari Sekhon LICENSE file
 #
-#  If you're using my code you're welcome to connect with me on LinkedIn and optionally send me feedback to help steer this or other code I publish
+#  If you're using my code you're welcome to connect with me on LinkedIn
+#  and optionally send me feedback to help steer this or other code I publish
 #
 #  https://www.linkedin.com/in/HariSekhon
 #
@@ -44,34 +45,64 @@ Requires DevOps-Perl-tools to be in \$PATH for diffnet.pl
 # shellcheck disable=SC2034
 usage_args="[<playlist>]"
 
-# shellcheck disable=SC1090
+# shellcheck disable=SC1090,SC1091
 . "$srcdir/lib/utils.sh"
 
-# shellcheck disable=SC1090
+# shellcheck disable=SC1090,SC1091
+. "$srcdir/lib/spotify.sh"
+
+# shellcheck disable=SC1090,SC1091
 #. "$srcdir/.bash.d/git.sh"
 
 help_usage "$@"
 
+spotify_token || :
+
+exec 3<&0
+
 commit_playlist(){
     playlist="$1"
     if ! [ -f "$playlist" ] ||
-       ! [ -f "spotify/$playlist" ]; then
+       ! [ -f "spotify/$playlist" ] ||
+       [[ "$playlist" =~ \.txt$ ]]; then
         return
     fi
-    if git status -s "$playlist" "spotify/$playlist" | grep -q '^[?A]'; then
+    timestamp "Checking playlist: $playlist"
+    line_count_human_playlist="$(wc -l < "$playlist" | sed 's/[[:space:]]//g')"
+    line_count_spotify_playlist="$(wc -l < "spotify/$playlist" | sed 's/[[:space:]]//g')"
+    if [ "$line_count_human_playlist" != "$line_count_spotify_playlist" ]; then
+        warn "ERROR: line counts between '$playlist' and 'spotify/$playlist' do not match! Partially interrupted download?"
+    fi
+    if git status -s -- "$playlist" "spotify/$playlist" | grep -q '^[?A]'; then
         git add "$playlist" "spotify/$playlist"
-        git ci -m "added $playlist spotify/$playlist" "$playlist" "spotify/$playlist"
+        if [ -f "$playlist.description" ]; then
+            git add "$playlist.description"
+            git ci -m "added $playlist spotify/$playlist" "$playlist" "spotify/$playlist" "$playlist.description"
+        else
+            git ci -m "added $playlist spotify/$playlist" "$playlist" "spotify/$playlist"
+        fi
         return
     fi
-    if ! git status -s "$playlist" "spotify/$playlist" | grep -q '^.M'; then
+    if ! git status -s -- "$playlist" "spotify/$playlist" | grep -q '^.M'; then
         return
     fi
     net_removals="$(find_net_removals "$playlist")"
     if [ -z "$net_removals" ]; then
+        # XXX: double safety check on the top level Artist-Tracks file which might have been partially modified
+        #      even if the spotify/playlist file has no net removals
+        local stats
+        local added_num
+        local removed_num
+        stats="$(git diff --numstat "$playlist")"
+        added_num="$(awk '{print $1}' <<< "$stats")"
+        removed_num="$(awk '{print $2}' <<< "$stats")"
+        if [ "$removed_num" -gt "$added_num" ]; then
+            die "ERROR: tracks have been removed from playlist '$playlist' top level file which were not removed from 'spotify/$playlist' - partial interrupted playlist download or files committed separately?"
+        fi
         echo "Auto-committing playlist '$playlist' as no net removals"
         echo
-        git add "$playlist" "spotify/$playlist"
-        git ci -m "updated $playlist spotify/$playlist" "$playlist" "spotify/$playlist"
+        git add -- "$playlist" "spotify/$playlist"
+        git ci -m "updated $playlist spotify/$playlist" -- "$playlist" "spotify/$playlist"
         echo
         return
     fi
@@ -79,11 +110,14 @@ commit_playlist(){
     echo
     echo "$net_removals"
     echo
-    read -r -p "Hit enter to see full human and spotify diffs or Control-C to exit"
+    #read -r -p "Hit enter to see full human and spotify diffs or Control-C to exit"
+    echo "Hit enter to see full human and spotify diffs or Control-C to exit"
+    read -r <&3
     echo
     git diff "$playlist" "spotify/$playlist"
     echo
-    read -r -p "Hit enter to commit playlist '$playlist' or Control-C to exit"
+    echo "Hit enter to commit playlist '$playlist' or Control-C to exit"
+    read -r <&3
     echo
     git add "$playlist" "spotify/$playlist"
     git ci -m "updated $playlist"
@@ -103,7 +137,7 @@ find_net_removals(){
             fi
             continue
         fi
-        track="$("$srcdir/../spotify_uri_to_name.sh" <<< "$uri")"
+        track="$("$srcdir/../spotify/spotify_uri_to_name.sh" <<< "$uri")"
         if grep -Fxq "$track" "$playlist"; then
             if [ -n "${VERBOSE:-}" ]; then
                 echo "skipping removed URI for track '$track' which is found in $playlist (must have been replaced with a different URI)" >&2
@@ -123,7 +157,7 @@ else
         cd playlists
     fi
     git status --porcelain |
-    grep '^.M' |
+    { grep '^.M' || :; } |
     sed 's/^...//; s,spotify/,,; s/^"//; s/"$//' |
     sort -u |
     while read -r playlist; do

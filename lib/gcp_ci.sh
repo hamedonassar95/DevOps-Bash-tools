@@ -18,8 +18,10 @@
 # ============================================================================ #
 set -euo pipefail
 [ -n "${DEBUG:-}" ] && set -x
-#srcdir="$(dirname "${BASH_SOURCE[0]}")"
+srcdir="$(dirname "${BASH_SOURCE[0]}")"
 
+# shellcheck disable=SC1090
+. "$srcdir/gcp.sh"
 
 # ============================================================================ #
 #       J e n k i n s   /   T e a m C i t y   B r a n c h   +   B u i l d
@@ -81,36 +83,6 @@ printenv(){
 #                               F u n c t i o n s
 # ============================================================================ #
 
-# necessary so you can log in to different projects and maintain IAM permissions isolation for safety
-# do not use the same serviceaccount with permissions across projects, you can cross contaminate and make mistakes, deploy the wrong environment etc.
-gcp_login(){
-    local credentials_json="${1:-}"
-    if [ -z "$credentials_json" ] ||
-       ! [ -f "$credentials_json" ]; then
-        # XXX: it's hard to copy the contents of this around so it's easiest to do via:
-        #
-        #   base64 credentials.json | pbcopy
-        #
-        # and then paste that into the CI/CD environment variables for the build
-        #
-        base64 --decode <<< "$GCP_SERVICEACCOUNT_KEY" > "$credentials_json"
-    fi
-    gcloud auth activate-service-account --key-file="$credentials_json"
-}
-
-gke_login(){
-    local cluster_name="$1"
-    # if running the CI build on the same k8s cluster as the deployment will go to - this is often not the case and not reliable to be detected either since we are often running these builds inside docker images and it would rely on correctly configuring the environment variables to be able to detect this. Instead just open the GKE's cluster's master networks to the projects external NAT IP
-    #local opts=(--internal-ip)
-    local opts=()
-    gcloud container clusters get-credentials "$cluster_name" "${opts[@]}"
-}
-
-enable_kaniko(){
-    #gcloud config set builds/use_kaniko True
-    export CLOUDSDK_BUILDS_USE_KANIKO=True
-}
-
 list_container_tags(){
     local image="$1"
     local build="$2"  # Git hashref that triggered CI build
@@ -134,7 +106,7 @@ gcloud_builds_submit(){
 }
 
 # yamls contain tag 'latest', we replace this with the build hashref matching the docker images just built as part of the build pipeline
-# Better is to use CI/CD to update the kustomization.yaml with the hashref as part of a GitOps workflow - see my Jenkins shared library https://github.com/HariSekhon/Templates/tree/master/vars
+# Better is to use CI/CD to update the kustomization.yaml with the hashref as part of a GitOps workflow - see my Jenkins shared library https://github.com/HariSekhon/Jenkins/tree/master/vars
 replace_latest_with_build(){
     local build="$1"
     sed -i "s/\\([[:space:]]newTag:[[:space:]]*\"*\\)latest/\\1$build/g" -- kustomization.yaml
@@ -144,7 +116,10 @@ replace_latest_with_build(){
 download_kustomize(){
     #curl -s "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh"  | bash
     # better to fix version in case later versions change behaviour or syntax
-    curl -o kustomize --location https://github.com/kubernetes-sigs/kustomize/releases/download/v3.1.0/kustomize_3.1.0_linux_amd64
+    curl -sSLf \
+         --proto "=https" \
+         -o kustomize \
+         https://github.com/kubernetes-sigs/kustomize/releases/download/v3.1.0/kustomize_3.1.0_linux_amd64
     chmod u+x ./kustomize
 }
 
@@ -155,6 +130,10 @@ kubernetes_deploy(){
     kubectl rollout status "deployment/$app" -n "$namespace" --timeout=120s
 }
 
+# old, use ArgoCD instead now, see Kubernetes repo:
+#
+#   https://github.com/HariSekhon/Kubernetes-configs
+#
 kustomize_kubernetes_deploy(){
     local app="$1"
     local namespace="$2"

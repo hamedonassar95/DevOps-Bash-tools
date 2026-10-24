@@ -100,12 +100,14 @@ ddrescue
 debootstrap
 #denyhosts
 dev-libs/geoip
+dev-perl/HTML-Parser
 dev-perl/List-MoreUtils
 dev-perl/Net-Netmask
 dev-perl/net-ssh-perl
 dev-perl/Perl-Critic
 dev-perl/perltidy
 dev-util/git
+dev-xml/xmlstarlet
 dhcpd-syntax
 dhcping
 dia
@@ -172,6 +174,7 @@ gvim
 gxmessage
 heartbeat
 hexedit
+#hexyl  # hex viewer - https://github.com/sharkdp/hexyl - requires sudo eselect repository enable dm9pZCAq && sudo emerge --sync dm9pZCAq && sudo emerge sys-apps/hexyl::dm9pZCAq
 honeyd
 hostapd
 hping
@@ -238,6 +241,8 @@ mc
 md5deep
 mdadm
 mdcrack
+media-gfx/exiftool  # view image metadata
+media-gfx/imagemagick
 memdump
 mercurial
 most
@@ -308,9 +313,11 @@ PEAR-PHP_Shell
 perl-doc
 pidgin
 pidgin-sipe
+pigz  # parallel gzip
 pinentry
 piozone
 pipebench
+pipenv
 pipeworks
 pkcrack
 #portsentry

@@ -22,7 +22,7 @@ bash_tools="${bash_tools:-$(dirname "${BASH_SOURCE[0]}")/..}"
 # shellcheck disable=SC1090,SC1091
 type add_PATH &>/dev/null || . "$bash_tools/.bash.d/paths.sh"
 # shellcheck disable=SC1090,SC1091
-type autocomplete &>/dev/null || . "$bash_tools/.bash.d/functions.sh"
+#type autocomplete &>/dev/null || . "$bash_tools/.bash.d/functions.sh"
 
 # ==================
 # AWS CLI completion
@@ -33,7 +33,7 @@ if [ -n "$aws_completer" ]; then
     complete -C "$aws_completer" aws
 fi
 
-autocomplete eksctl
+#autocomplete eksctl
 
 # =====================
 # Elastic Beanstalk CLI (easier to use than AWS CLI)
@@ -42,19 +42,21 @@ if [ -d ~/.ebcli-virtual-env/executables/ ]; then
     add_PATH ~/.ebcli-virtual-env/executables/
 fi
 
-# =====================
+# ============================================================================ #
+#                   A l i a s e s   a n d   F u n c t i o n s
+# ============================================================================ #
+
+alias awsl='aws sso login'
 
 #alias s3='s3cmd'
 alias s3='aws s3'
 alias dockerecr='aws ecr get-login-password | docker login -u AWS --password-stdin $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com'
 
-# easily set a profile env var
-aws_profile(){
-    export AWS_PROFILE="$*"
-}
-alias awsp=awsprofile
+alias awscon='aws_consoler -o'
+alias awsc='awscon'
 
 alias aws_whoami="aws sts get-caller-identity"
+alias awhoami=aws_whoami
 
 # loads creds from a CLI cache file (eg. for AWS SSO) into environment variables
 # better done via direnv
@@ -75,12 +77,12 @@ awscreds(){
 alias awl=awless
 alias assh="awless ssh"
 
-autocomplete awless
+#autocomplete awless
 # make completion work with awl alias above
-if ! [ -f ~/.bash.autocomplete.d/awl.sh ]; then
-    sed 's/awless/awl/g' ~/.bash.autocomplete.d/awless.sh > ~/.bash.autocomplete.d/awl.sh
-fi
-autocomplete awl
+#if ! [ -f ~/.bash.autocomplete.d/awl.sh ]; then
+#    sed 's/awless/awl/g' ~/.bash.autocomplete.d/awless.sh > ~/.bash.autocomplete.d/awl.sh
+#fi
+#autocomplete awl
 
 # ==================
 
@@ -156,37 +158,21 @@ aws_clean_env(){
     done < <(env | sed -n '/^AWS_/ s/=.*// p')
 }
 
+# easily set a profile env var
+#aws_profile(){
+#    # false positive
+#    # shellcheck disable=SC2317
+#    export AWS_PROFILE="$*"
+#}
+
+alias awsprofile=aws_profile.sh
+alias awsp=aws_profile.sh
+
 aws_get_profile_data(){
     local profile="$1"
     local filename="${2:-$aws_credentials_file}"
     sed -n "/[[:space:]]*\\[\\(profile[[:space:]]*\\)*$profile\\]/,/^[[:space:]]*\\[/p" "$filename"
 }
-
-aws_profile(){
-    local profile="${1// }"
-    if [ -n "$profile" ]; then
-        if ! [[ "$profile" =~ ^[[:alnum:]_-]+$ ]]; then
-            echo "invalid profile name given, must be alphanumeric, dashes and underscores allowed"
-            return 1
-        fi
-        local profile_data
-        profile_data="$(aws_get_profile_data "$profile")"
-        [ -n "$profile_data" ] ||
-        profile_data="$(aws_get_profile_data "$profile" "${AWS_CONFIG_FILE:-$HOME/.aws/config}")"
-        if [ -z "$profile_data" ]; then
-            echo "profile [$profile] not found in $aws_credentials_file!"
-            return 1
-        fi
-        aws_clean_env
-        echo "setting aws profile to '$profile'"
-        export AWS_PROFILE="$profile"
-    elif [ -n "$AWS_PROFILE" ]; then
-        echo "$AWS_PROFILE"
-    else
-        echo "default (keys not loaded to env)"
-    fi
-}
-alias awsprofile=aws_profile
 
 # Storing creds in one place in Boto creds file, pull them straight from there
 # if only using new creds, might want to just export AWS_PROFILE instead using aws_profile which provides validation
@@ -208,7 +194,7 @@ aws_env(){
     )"
     if [ -f "$aws_token" ]; then
         echo "sourcing $aws_token"
-        # shellcheck disable=SC1090
+        # shellcheck disable=SC1090,SC1091
         source "$aws_token"
     fi
 }

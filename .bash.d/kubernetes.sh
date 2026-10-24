@@ -20,8 +20,7 @@
 bash_tools="${bash_tools:-$(dirname "${BASH_SOURCE[0]}")/..}"
 
 # shellcheck disable=SC1090,SC1091
-type add_PATH &>/dev/null || . "$bash_tools/.bash.d/paths.sh"
-
+#type add_PATH &>/dev/null || . "$bash_tools/.bash.d/paths.sh"
 
 for x in kubectl oc helm flux; do
     autocomplete "$x"
@@ -30,8 +29,8 @@ done
 # minishift oc-env > ~/.minishift.env
 if [ -f ~/.minishift.env ]; then
     # remove .minishift.env if it causes errors, which can happen if it was generated when there was no MiniShift VM running
-    # shellcheck disable=SC1090
-    . ~/.minishift.env || rm -f ~/.minishift.env
+    # shellcheck disable=SC1090,SC1091
+    . ~/.minishift.env || rm -f -- ~/.minishift.env
 fi
 
 #if [ -f "/usr/local/opt/kube-ps1/share/kube-ps1.sh" ]; then
@@ -43,7 +42,7 @@ fi
 # unreliable that HOME is set, ensure shell evaluates to the right thing before we use it
 [ -n "${HOME:-}" ] || HOME=~
 
-add_PATH "${KREW_ROOT:-$HOME/.krew}"
+add_PATH "${KREW_ROOT:-$HOME/.krew/bin}"
 
 for x in "$bash_tools"/kubernetes*.sh; do
     x="${x##*/}"
@@ -72,11 +71,14 @@ alias powc='poc -o wide'
 alias pocw='poc -o wide'
 alias kapply='k apply -f'
 alias kapp=kapply
+alias kget='k get'
+alias kedit='k edit'
 alias kdel='k delete'
 alias kdelf='kdel -f'
 alias wp=watchpods
 alias kd=kdesc
 alias ke=kubectl_exec.sh
+alias kexec=kubectl_exec.sh
 alias ke2=kubectl_exec2.sh
 alias keg=kubectl_exec_grep.sh
 alias kg='k get'
@@ -89,56 +91,207 @@ alias kubesh='kube-shell'
 alias kubeconfig='$EDITOR "${KUBECONFIG:-~/.kube/config}"'
 alias kubeconf=kubeconfig
 
+#alias use="k config use-context"
+alias contexts="k config get-contexts"
+#alias context="k config current-context"
+context(){ k config current-context; }
+#alias con=context
+alias cons=contexts
+# contexts has this info and is more useful
+#alias clusters="k config get-clusters"
+
+# scripts in kubernetes/ directory that should be added to \$PATH (done automatically by sourcing this repo's .bashrc)
+alias kbusybox="kubectl_busybox.sh"
+alias kalpine="kubectl_alpine.sh"
+alias kcurl="kubectl_curl.sh"
+alias kdns="kubectl_dnsutils.sh"
+
+kube_config_isolate(){
+    local tmpdir="/tmp/.kube"
+
+    mkdir -pv "$tmpdir"
+
+    local default_kubeconfig="${HOME:-$(cd ~ && pwd)}/.kube/config"
+    local original_kubeconfig="${KUBECONFIG:-$default_kubeconfig}"
+
+    # reload safety - do not source from new tmpdir - not necessary for direnv but useful for local sourcing tests
+    #if [[ "$original_kubeconfig" =~ $tmpdir ]]; then
+    #    echo "ignoring \$KUBECONFIG=$original_kubeconfig, using default home location $default_kubeconfig"
+    #    original_kubeconfig="$default_kubeconfig"
+    #fi
+
+    # isolate the kubernetes context to avoid a race condition affecting any other shells or scripts
+    # epoch is added because $$ and $PPID are direnv sub-processes and may be reused later, so using epoch to add uniqueness
+    local epoch
+    epoch="$(date +%s)"
+    export KUBECONFIG="$tmpdir/config.${EUID:-${UID:-$(id -u)}}.$$.$epoch"
+
+    # load your real kube config to isolated staging area to source the context info
+    if [ -f "$original_kubeconfig" ]; then
+        cp -v -- "$original_kubeconfig" "$KUBECONFIG"
+    elif [ -f "$default_kubeconfig" ]; then
+        cp -v -- "$default_kubeconfig" "$KUBECONFIG"
+    elif [ -f "$PWD/.kube/config" ]; then
+        cp -v -- "$PWD/.kube/config" "$KUBECONFIG"
+    elif [ -f "/etc/rancher/k3s/k3s.yaml" ]; then
+        cp -v -- "/etc/rancher/k3s/k3s.yaml" "$KUBECONFIG"
+    else
+        echo "WARNING: failed to find one of:
+
+        $original_kubeconfig
+        $default_kubeconfig
+        $PWD/.kube/config
+        /etc/rancher/k3s/k3s.yaml
+    " >&2
+    fi
+}
+
+# false positive, not using positional parameters
+# shellcheck disable=SC2142
+alias namespace='k config get-contexts | grep -F "$(kubectl config current-context)" | awk "{print \$5}"'
+alias kwhere="{ echo -n 'context: '; context; echo -n 'namespace: '; namespace; }"
+alias con='kwhere'
+
+#alias kcd='k config set-context "$(kubectl config current-context)" --namespace'
+
+alias menv='eval $(minikube docker-env)'
+
+# scripts at top level, automatically included in $PATH
+alias labels="kubectl_node_labels.sh"
+alias taints="kubectl_node_taints.sh"
+
+unalias kcd 2>/dev/null
+kcd(){
+    if [ $# -lt 1 ] || [ $# -gt 2 ]; then
+        echo "usage: kcd <namespace>" >&2
+        return 1
+    fi
+    local namespace="$1"
+    echo "Switching to namespace '$namespace'"
+    k config set-context "$(kubectl config current-context)" --namespace "$namespace"
+}
+
+unalias use 2>/dev/null
+use(){
+    if [ $# -lt 1 ] || [ $# -gt 2 ]; then
+        echo "usage: use <context> [<namespace>]" >&2
+        return 1
+    fi
+    local context="$1"
+    local namespace="${2:-}"
+    local contexts
+    contexts="$(k config get-contexts -o name)"
+    if ! grep -Fxq "$context" <<< "$contexts"; then
+        #echo "No matching contexts, inferring first partial match"
+        context="$(grep -Em1 "$context" <<< "$contexts" || :)"
+        if [ -z "$context" ]; then
+            echo "Couldn't find any matching context name" >&2
+            return 1
+        fi
+        #echo "Inferred context to be '$context'"
+    fi
+    #local args=()
+    #if [ -n "$namespace" ]; then
+    #    args+=(--namespace "$namespace")
+    #fi
+    #k config use-context "$context" "${args[@]}"
+    # less efficient, but more verbose
+    k config use-context "$context"
+    if [ -n "$namespace" ]; then
+        kcd "$namespace"
+    fi
+}
+
+kubectl_namespace(){
+    kubectl config get-contexts | awk '/^\*/{print $5}'
+}
+
 #alias poc='po | grep -v Completed'
 unalias poc &>/dev/null
 poc(){
     po "$@" | grep -v Completed
 }
 
-# scripts at top level, automatically included in $PATH
-alias labels="kubectl_node_labels.sh"
-alias taints="kubectl_node_taints.sh"
+#alias dat='datree test --only-k8s-files --ignore-missing-schemas'
+dat(){
+    if [ $# -eq 0 ]; then
+        find . -type f -iname '*.y*ml' |
+        # datree doesn't handle patches well
+        grep -v patch |
+        tr '\n' '\0' |
+        xargs -0 datree test --only-k8s-files --ignore-missing-schemas
+    else
+        datree test --only-k8s-files --ignore-missing-schemas "$@"
+    fi
+}
+datkust(){
+    datree_kustomize_all.sh . -- --enable-helm
+}
 
 # kustomize
 alias kbuild='kustomize build --enable-helm'
-alias kustomizebuilddiff='kbuild | kubectl diff -f -'
+alias kustomizebuilddiff='kbuild | kubectl_create_namespaces.sh; kbuild | kubectl diff -f -'
 alias kbuilddiff=kustomizebuilddiff
 alias kbuildd=kbuilddiff
 alias kbd=kbuildd
-#alias kustomizebuildapply='kbuild | kubectl apply -f -'
-alias kbuildapply=kustomizebuildapply
-alias kbuilda=kbuildapply
-alias kba=kbuilda
+alias kda=kustomize_diff_apply.sh
 
-kustomizebuildapply(){
-    local diff
-    diff="$(kustomizebuilddiff)"
-    if [ -z "$diff" ]; then
-        echo "No Kubernetes changes" >&2
-        return 0
+# workaround for the fact that kustomize doesn't accept other filenames
+kustomize_build_file(){
+    local kustomization="$1"
+    if [ -z "$kustomization" ]; then
+        echo "usage: kustomize_build_file <something>-kustomization.yaml" >&2
+        return 1
     fi
-    more <<< "$diff"
-    echo
-    read -r -p "Are you sure you want to apply this change set? (y/N) " answer
-    answer="${answer//[:space:]]/}"
-    if [[ "$answer" =~ ^Y|y|yes$ ]]; then
-        kbuild | kubectl apply -f -
+    # because shell completion will stop at the prefix, so allow us to just enter and have it figure out what we're doing
+    if ! [ -f "$kustomization" ];then
+        if [ -f "${kustomization}kustomization.yaml" ]; then
+            kustomization+="kustomization.yaml"
+        elif [ -f "${kustomization}-kustomization.yaml" ]; then
+            kustomization+="-kustomization.yaml"
+        elif [ -f "${kustomization}kustomization.yml" ]; then
+            kustomization+="kustomization.yml"
+        elif [ -f "${kustomization}-kustomization.yml" ]; then
+            kustomization+="-kustomization.yml"
+        else
+            echo "File not found: $kustomization" >&2
+            return 1
+        fi
     fi
+    local prefix="${kustomization%kustomization.y*ml}"
+    prefix="${prefix%-}"
+    prefix="${prefix%_}"
+    command cp -v -- "$prefix"*.yaml /tmp/ >&2
+    cd /tmp >&2 || return 1
+    echo >&2
+    command mv -v -- "${kustomization##*/}" kustomization.yaml >&2
+    echo >&2
+    kbuild
+    local result=$?
+    echo >&2
+    cd - >&2 || return 1
+    return $result
+}
+alias kbuildf=kustomize_build_file
+alias kbf=kbuildf
+kbfa(){
+    kbuildf "$@" >/dev/null || return 1
+    cd /tmp >&2 || return 1
+    kustomize_diff_apply.sh
+    cd - >&2 || return 1
 }
 
-alias use="k config use-context"
-alias contexts="k config get-contexts"
-#alias context="k config current-context"
-context(){ k config current-context; }
-# contexts has this info and is more useful
-#alias clusters="k config get-clusters"
-
-alias kcd='k config set-context "$(kubectl config current-context)" --namespace'
-
-alias menv='eval $(minikube docker-env)'
-
-kubectl_namespace(){
-    kubectl config get-contexts | awk '/^\*/{print $5}'
+# copies kustomization and values files while stripping their comments and filename prefixes
+kustcp(){
+    local name="$1"
+    local dir="$2"
+    echo "Copying $name-kustomization.yaml to $dir/kustomization.yaml" >&2
+    decomment "$name-kustomization.yaml" > "$dir/kustomization.yaml"
+    echo "Copying $name-values.yaml to $dir/values.yaml" >&2
+    decomment "$name-values.yaml" > "$dir/values.yaml"
+    echo "Replacing values filename reference in kustomization.yaml" >&2
+    perl -pi -e "s/$name-values\\.yaml/values.yaml/" "$dir/kustomization.yaml"
+    echo "Done" >&2
 }
 
 # ============================================================================ #
@@ -154,7 +307,7 @@ if [ "${K8S_NAMESPACE:-}" ]; then
     kubectl_opts+=(-n "$K8S_NAMESPACE")
 fi
 # TODO: might split this later
-oc_opts=("${kubectl_opts[@]}")
+oc_opts=("${kubectl_opts[@]:-}")
 
 # ============================================================================ #
 
@@ -181,7 +334,7 @@ k(){
         case "$KUBERNETES_CLI" in
             kubectl)    opts+=("${kubectl_opts[@]}")
                         ;;
-                 oc)    opts+=("${oc_opts[@]}")
+                 oc)    opts+=("${oc_opts[@]:-}")
                         ;;
                   *)    echo "invalid command '$KUBERNETES_CLI' listed in \$KUBERNETES_CLI (must be either 'kubectl' or 'oc' depending on whether you are using straight Kubernetes or OpenShift). Fix the variable or unset it to auto-detect when calling the k() function"
                         return
@@ -209,27 +362,74 @@ krun(){
     k run --generator=run-pod/v1 "$name" --image "$image" -ti -- /bin/sh
 }
 
-kexec(){
-    local line
+# use ../kubernetes/kubectl_exec.sh via alias instead
+#kexec(){
+#    local lines
+#    local name="${1//\//-}"
+#    if [ -z "$name" ]; then
+#        echo "usage: kexec <name>"
+#        return 1
+#    fi
+#    for ((i=0;i<100;i++)); do
+#        lines="$(k get po | grep -F "$name")"
+#        if [ -z "$lines" ]; then
+#            echo "No pods matching name $name found!"
+#            return 1
+#        fi
+#        name="$(awk '$3 ~ /Running/{print $1; exit}' <<< "$lines")"
+#        if [ -n "$name" ]; then
+#            break
+#        fi
+#        echo "waiting for pod to start running..."
+#        sleep 1
+#    done
+#    local cmd=(kubectl exec -ti "$name" "$@" -- /bin/sh -c 'if type bash >/dev/null 2>&1; then exec bash; else exec sh; fi')
+#    echo "${cmd[*]}"
+#    "${cmd[@]}"
+#}
+
+klog(){
+    local name="$1"
+    k logs -f -n "$name" "deploy/$name"
+}
+klogs(){
+    local lines
     local name="${1//\//-}"
+    shift || :
     if [ -z "$name" ]; then
-        echo "usage: kexec <name>"
+        echo "usage: klogs <name>"
         return 1
     fi
     for ((i=0;i<100;i++)); do
-        line="$(k get po | grep -F "$name")"
-        if [ -z "$line" ]; then
-            echo "No pod matching name $name found!"
+        lines="$(k get po | grep -F "$name")"
+        if [ -z "$lines" ]; then
+            echo "No pods matching name $name found!"
             return 1
         fi
-        name="$(awk '/Running/{print $1}' <<< "$line")"
+        # often want to see the logs of the last pod restart in 'Crashing' status
+        #name="$(awk '$3 ~ /Running/{print $1; exit}' <<< "$lines")"
+        name="$(awk '{print $1; exit}' <<< "$lines")"
         if [ -n "$name" ]; then
             break
         fi
         echo "waiting for pod to start running..."
         sleep 1
     done
-    k exec -ti "$name" -- /bin/sh
+    echo kubectl logs "$@" "\"$name\""
+    k logs "$@" "$name"
+}
+
+kfwd(){
+    local filter="$1"
+    local port="$2"
+    local hostport="$3"
+    shift
+    shift
+    shift
+    # mind need splitting if it's a filter
+    # shellcheck disable=SC2086
+    kubectl port-forward $filter "$port" "$hostport" &
+    open "http://localhost:$hostport"
 }
 
 # looks like both of these work on OpenShift context
@@ -307,17 +507,21 @@ watchpods(){
         echo
         echo 'Pods:'
         echo
-        kubectl " "${kubectl_opts[@]}" " get pods " "${k8s_get_pod_opts[@]}" " 2>&1
+        kubectl " "${kubectl_opts[@]}" " get pods " "${k8s_get_pod_opts[@]:-}" " 2>&1
         echo
     "
 }
 
 kdesc(){
-    k describe "$@"
+    k describe "$@" | less
 }
 
+# kdesc pod with grep filter on name for fast describing a pod in the current or given namespace
 kdp(){
-    kdesc pods "$@"
+    local filter="${1:-.*}"
+    shift || :
+    pod="$(k get po -o name "$@" | grep -Em 1 "$filter")" || return
+    kdesc "$pod" "$@"
 }
 
 kdelp(){
@@ -388,4 +592,26 @@ kclusters(){
 # to kubectl apply manifests to both clusters for multi-cluster deployments
 kclustersapply(){
     kclusters apply -f "$@"  # eg. manifests
+}
+
+# inspired by my class 'when' functions in when.sh
+whenpodup(){
+    local name="${1:-}"
+    shift || :
+    if [ -z "$name" ]; then
+        echo "usage: whenpodup <name>"
+        return 1
+    fi
+    local count=0
+    while ! kubectl get pods "$name" -o 'jsonpath={.status.phase}' | grep -q 'Running'; do
+        ((count+=1))
+        timestamp "waiting for pod '$name' to come up..."
+        if [ $count -gt 22 ]; then
+            sleep 10
+        else
+            sleep 5
+        fi
+    done
+    timestamp "pod '$name' is up"
+    "$@"
 }

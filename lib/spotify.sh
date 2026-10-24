@@ -40,7 +40,7 @@ spotify_token(){
     # shellcheck disable=SC2166
     if [ -z "${SPOTIFY_ACCESS_TOKEN:-}" ] ||
        [ -n "${SPOTIFY_PRIVATE:-}" -a "${#SPOTIFY_ACCESS_TOKEN}" -lt 280 ]; then
-        SPOTIFY_ACCESS_TOKEN="$("$libdir/../spotify_api_token.sh")"
+        SPOTIFY_ACCESS_TOKEN="$("$libdir/../spotify/spotify_api_token.sh")"
     fi
     export SPOTIFY_ACCESS_TOKEN
 }
@@ -79,25 +79,34 @@ is_local_uri(){
 }
 
 is_spotify_playlist_id(){
-    #local playlist_id="${1:-}"
+    local playlist_id="${1:-}"
     #if [ -z "$playlist_id" ]; then
     #    die "no playlist id passed to function is_spotify_playlist_id()"
     #fi
-    [[ "$1" =~ [[:alnum:]]{22} ]]
+    [[ "$playlist_id" =~ ^[A-Za-z0-9]{22}$ ]]
+}
+
+is_spotify_playlist_snapshot_id(){
+    local snapshot_id="${1:-}"
+    [[ "$snapshot_id" =~ ^[A-Za-z0-9+/]{20,}={0,2}$ ]]
 }
 
 validate_spotify_uri(){
     local uri="$1"
-    if ! [[ "$uri" =~ ^(spotify:(track|album|artist):|^https?://open.spotify.com/(track|album|artist)/)?[[:alnum:]]+(\?.+)?$ ]]; then
+    if ! [[ "$uri" =~ ^(spotify:(track|album|artist|episode):|^https?://open.spotify.com/(track|album|artist|episode)/)?[[:alnum:]]+(\?.+)?$ ]]; then
         echo "Invalid URI provided: $uri" >&2
         return 1
     fi
-    if [[ "$uri" =~ open.spotify.com/|^spotify: ]]; then
-        if ! [[ "$uri" =~ open.spotify.com/${uri_type:-track}|^spotify:${uri_type:-track} ]]; then
-            echo "Invalid URI type '${uri_type:-track}' vs URI '$uri'" >&2
-            return 1
-        fi
-    fi
+    # My Love Island playlist has a mix of tracks and episodes so this breaks
+    #
+    #   Invalid URI type 'track' vs URI 'spotify:episode:4Dl83m4Ibate3jn0hJFMzX'
+    #
+    #if [[ "$uri" =~ open.spotify.com/|^spotify: ]]; then
+    #    if ! [[ "$uri" =~ open.spotify.com/${uri_type:-track}|^spotify:${uri_type:-track} ]]; then
+    #        echo "Invalid URI type '${uri_type:-track}' vs URI '$uri'" >&2
+    #        return 1
+    #    fi
+    #fi
     uri="${uri##*[:/]}"
     uri="${uri%%\?*}"
     echo "$uri"

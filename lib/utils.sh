@@ -23,6 +23,8 @@ if [ "${bash_tools_utils_imported:-0}" = 1 ]; then
 fi
 bash_tools_utils_imported=1
 
+. "$srcdir_bash_tools_utils/utils-bourne.sh"
+
 export PATH="$PATH:/usr/local/bin"
 
 . "$srcdir_bash_tools_utils/ci.sh"
@@ -35,7 +37,10 @@ export PATH="$PATH:/usr/local/bin"
 #. "$srcdir_bash_tools_utils/ruby.sh"
 
 # consider adding ERR as set -e handler, not inherited by shell funcs / cmd substitutions / subshells without set -E
-export TRAP_SIGNALS="INT QUIT TRAP ABRT TERM EXIT"
+# don't trap INT and EXIT with the same handler as INT triggers on Control-C and so a script exit runs the handler twice
+# same for the other signals, EXIT is generally enough
+#export TRAP_SIGNALS="INT QUIT TRAP ABRT TERM EXIT"
+export TRAP_SIGNALS="EXIT"
 
 # prevents illegal byte encoding errors when piping to filenames with unicode characters
 # doesn't work in CentOS 8 docker, gets this error
@@ -51,13 +56,17 @@ if [ -z "${total_run_count:-}" ]; then
     total_run_count=0
 fi
 
+# used in calling curl_*.sh scripts
+# shellcheck disable=SC2034
+user_agent=(-A "HariSekhon/DevOps-Bash-tools (contact: GitHub repo)")
+
 # ERE format (egrep / grep -E)
 #
 # used in client scripts
 # shellcheck disable=SC2034
-domain_regex='\b(([A-Za-z0-9](-?[A-Za-z0-9])*)\.)+[A-Za-z]{2,}\b'
+domain_regex='(([A-Za-z0-9](-?[A-Za-z0-9])*)\.)+[A-Za-z]{2,}'
 # shellcheck disable=SC2034
-email_regex='\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b'
+email_regex='[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}'
 # shellcheck disable=SC2034
 ip_regex='[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}'
 # shellcheck disable=SC2034
@@ -85,7 +94,7 @@ hr3(){
 section(){
     name="$*"
     hr
-    "$srcdir_bash_tools_utils/../center.sh" "$@"
+    "$srcdir_bash_tools_utils/../bin/center.sh" "$@"
     hr
     if [ -n "${PROJECT:-}" ]; then
         echo "PROJECT: $PROJECT"
@@ -111,11 +120,11 @@ section3(){
 }
 
 hr2echo(){
-    "$srcdir_bash_tools_utils/../center.sh" "$@" 50
+    "$srcdir_bash_tools_utils/../bin/center.sh" "$@" 50
 }
 
 hr3echo(){
-    "$srcdir_bash_tools_utils/../center.sh" "$@" 40
+    "$srcdir_bash_tools_utils/../bin/center.sh" "$@" 40
 }
 
 #set +o pipefail
@@ -132,7 +141,7 @@ type isExcluded &>/dev/null || . "$srcdir_bash_tools_utils/excluded.sh"
 check_bin(){
     local bin="${1:-}"
     if ! type -P "$bin" &>/dev/null; then
-        echo "command '$bin' not found in \$PATH ($PATH)"
+        echo "command '$bin' not found in \$PATH ($PATH)" >&2
         if is_CI; then
             timestamp "Running in CI, searching entire system for '$bin'"
             find / -type f -name "$bin" 2>/dev/null
@@ -144,6 +153,7 @@ check_bin(){
 
 check_output(){
     local expected="$1"
+    # shellcheck disable=SC2178
     local cmd="${*:2}"
     # do not 2>&1 it will cause indeterministic output even with python -u so even tail -n1 won't work
     echo "check_output:  $cmd"
@@ -173,7 +183,7 @@ check_exit_code(){
         fi
     done
     if [ "$failed" != 0 ]; then
-        echo "WRONG EXIT CODE RETURNED! Expected: '$expected_exit_codes', got: '$exit_code'"
+        echo "WRONG EXIT CODE RETURNED! Expected: '$expected_exit_codes', got: '$exit_code'" >&2
         return 1
     fi
 }
@@ -221,12 +231,67 @@ is_interactive(){
     return 1
 }
 
-if [ $EUID -eq 0 ]; then
-    sudo=""
-else
-    sudo=sudo
-fi
-export sudo
+# normalizes two paths using readlink and then returns true if they are the same
+# relies on GNU readlink (greadlink on mac) and the mac portability layer in this library to ensure it uses the right one
+is_same_path(){
+    local path1="$1"
+    local path2="$2"
+    [ "$(readlink -f "$path1")" != "$(readlink -f "$path2")" ]
+}
+
+is_directory_populated(){
+    local dir="$1"
+    local exceptfile="$2"  # useful for locking dirs with only a pidfile, pass the pid file as an arg
+    if [ -f "$dir" ]; then
+        die "File passed to is_directory_populated() function: $dir"
+    # scripts should check themselves if they expect the directory to pre-exist
+    # eg. I want to use this in lockdir.sh and in that case the atomic locking dir must not pre-exist
+    #elif ! [ -d "$dir" ]; then
+        #warn "Directory does not exist: $dir"
+    fi
+    if ! [[ "$exceptfile" =~ / ]]; then
+        exceptfile="$dir/$exceptfile"
+    fi
+    if is_same_path "$dir" "$(dirname "$exceptfile")"; then
+        die "Exceptfile passed to is_directory_populated() function is not within the given directory: $dir vs $exceptfile"
+    fi
+    # trailing slash will fail if it's not a directory
+    # silently ignore if the directory is not found
+    if [ "$(
+            find "$dir/" 2>/dev/null |
+            sed 's|//|/|g' |
+            grep -Fxv -e "$dir" -e "$dir/" |
+            grep -c . || :
+           )" -gt 1 ]; then
+        return 0
+    elif [ "$(
+                find "$dir/" |
+                sed 's|//|/|g' |
+                grep -Fxv -e "$dir" -e "$dir/" -e "$exceptfile" |
+                grep -c . || :
+             )" -gt 0 ]; then
+        return 0
+    fi
+    return 1
+}
+
+file_newer_than_mins(){
+    local mins="$1"
+    local file="$2"
+    local mtime
+    if ! is_int "$mins"; then
+        die "Error: non-integer passed as first arg to file_newer_than_mins() function"
+    fi
+    local secs="$((mins * 60))"
+
+    if is_mac; then
+        mtime=$(stat -f %m "$file")
+    else  # assume Linux GNU stat
+        mtime=$(stat -c %Y "$file")
+    fi
+
+    (( "$(date +%s)" - mtime <= secs ))
+}
 
 # XXX: there are other tarball extensions for other compression algorithms but these are the 2 very standard ones we always use: gzip or bz2
 has_tarball_extension(){
@@ -254,24 +319,10 @@ has_tarball_bzip2_extension(){
     [[ "$filename" =~ \.(tbz|tar\.bz2)$ ]]
 }
 
-get_os(){
-    uname -s |
-    tr '[:upper:]' '[:lower:]'
-}
-
-get_arch(){
-    local arch
-    arch="$(uname -m)"
-    if [ "$arch" = x86_64 ]; then
-        arch=amd64  # files are conventionally named amd64 not x86_64
-    fi
-    echo "$arch"
-}
-
 curl(){
     local opts=()
     if is_piped || is_CI; then
-        opts+=(-sS)
+        opts+=(-sSf)
     fi
     command curl ${opts:+"${opts[@]}"} "$@"
 }
@@ -290,7 +341,7 @@ download(){
     if type -P wget &>/dev/null; then
         wget -O "$download_file" "$url"
     elif type -P curl &>/dev/null; then
-        curl -L -o "$download_file" "$url"
+        curl -sSLf -o "$download_file" "$url"
     else
         die "wget / curl not installed - cannot download"
     fi
@@ -308,6 +359,7 @@ curl_version(){
     curl --version | awk '{print $2; exit}' | grep -Eom1 '[[:digit:]]+\.[[:digit:]]+'
 }
 is_curl_min_version(){
+    # shellcheck disable=SC2178
     local target_version="$1"
     local curl_version
     curl_version="$(curl_version)"
@@ -323,6 +375,7 @@ go_version(){
 }
 
 is_golang_min_version(){
+    # shellcheck disable=SC2178
     local target_version="$1"
     local go_version
     go_version="$(go_version)"
@@ -351,6 +404,15 @@ is_min_version(){
     return 0
 }
 
+is_online(){
+    if is_mac; then
+        ping -c1 -W1 1.1.1.1 &>/dev/null && return 0
+    else
+        ping -c1 -t1 1.1.1.1 &>/dev/null && return 0
+    fi
+    return 1
+}
+
 is_semver(){
     # shellcheck disable=SC2178
     local version="$1"
@@ -370,8 +432,8 @@ curl_api_opts(){
     if [ -n "${CURL_OPTS:-}" ]; then
         read -r -a CURL_OPTS <<< "${CURL_OPTS[@]}" # this @ notation works for both strings and arrays in case a future version of bash do export arrays this should still work
     else
-        #read -r -a CURL_OPTS <<< "-sS --fail --connect-timeout 3"
-        CURL_OPTS=(-sS --fail --connect-timeout 3)
+        #read -r -a CURL_OPTS <<< "-sS --fail --connect-timeout 10"
+        CURL_OPTS=(-sS --fail --connect-timeout 10)
     fi
 
     # case insensitive regex matching
@@ -477,7 +539,10 @@ trap_debug_env(){
     if is_CI &&
        ! type trap_function &>/dev/null &&
        type docker_image_cleanup &>/dev/null; then
+        # trap_function is not called here
+        # shellcheck disable=SC2329
         trap_function(){
+            # shellcheck disable=SC2317
             docker_image_cleanup
         }
     fi
@@ -501,6 +566,9 @@ pass(){
 read_secret(){
     secret=""
     prompt="Enter ${1:-secret value}: "
+    # doesn't echo any characters to the screen even in commands
+    #stty -echo
+    # this gives stars feedback which is nicer
     while IFS= read -p "$prompt" -r -s -n 1 char; do
         if [[ "$char" == $'\0' ]]; then
             break
@@ -508,11 +576,19 @@ read_secret(){
         prompt='*'
         secret="${secret}${char}"
     done
+    #stty echo
     echo
     export secret
 }
 
 if is_mac; then
+    awk(){
+        # needed for awk -v IGNORECASE=1 to work for case insensitive regex
+        command gawk "$@"
+    }
+    grep(){
+        command ggrep "$@"
+    }
     readlink(){
         command greadlink "$@"
     }
@@ -630,6 +706,7 @@ run_test_versions(){
     test_versions_ordered="$test_versions"
     if [ -z "${NO_VERSION_REVERSE:-}" ]; then
         # tail -r works on Mac but not Travis CI Ubuntu Trusty
+        # shellcheck disable=SC2119
         test_versions_ordered="$(tr ' ' '\n' <<< "$test_versions" | tac | tr '\n' ' ')"
     fi
     local start_time
@@ -639,7 +716,7 @@ run_test_versions(){
         run_count=0
         eval "$test_func" "$version"
         if [ $run_count -eq 0 ]; then
-            echo "NO TEST RUNS DETECTED!"
+            echo "NO TEST RUNS DETECTED!" >&2
             exit 1
         fi
         ((total_run_count+=run_count))
@@ -669,6 +746,13 @@ parse_run_args(){
     perl -ne 'if(/^\s*(#|\/\/|--)\s*run:/){s/^\s*(#|\/\/)\s*run:\s*//; print $_; exit}' "$@"
 }
 
+# examples:
+#
+# #  stdin: Driving & road trip playlist
+parse_run_stdin(){
+    perl -ne 'if(/^\s*(#|\/\/|--)\s*stdin:/){s/^\s*(#|\/\/)\s*stdin:\s*//; print $_; exit}' "$@"
+}
+
 # example:
 #
 # lint: k8s
@@ -687,21 +771,92 @@ stat_bytes(){
 }
 
 timestamp(){
-    printf "%s" "$(date '+%F %T')  $*" >&2
+    local ts
+    ts="$(date '+%F %T')"
     if [ $# -gt 0 ]; then
-        printf '\n' >&2
+        printf "%s  %s\n" "$ts" "$*" >&2
+    else
+        printf "%s  " "$ts" >&2
     fi
 }
 tstamp(){ timestamp "$@"; }
 
+seconds_to_hours(){
+    local secs="$1"
+    printf '%d:%02d:%02d\n' $((secs/3600)) $((secs%3600/60)) $((secs%60))
+}
+
 warn(){
     timestamp "WARNING: $*"
+}
+warning(){
+    warn "$@"
+}
+
+error(){
+    timestamp "ERROR: $*"
 }
 
 log(){
     if is_verbose; then
         timestamp "$@"
     fi
+}
+
+trim(){
+    local str="$1"
+    # easier
+    #sed '
+    #    s/^[[:space:]]*//;
+    #    s/[[:space:]]*$//;
+    #' <<< "$str"
+
+    # more efficient without process fork to sed
+    #
+    # not using shopt -s extglob because then I have to track it its prior state
+    # from parent/client calling script and restore it
+    #
+    #str="${str##+([[:space:]])}"  # trim leading
+    #str="${str%%+([[:space:]])}"  # trim trailing
+    #
+    # trim leading whitespace
+    str="${str#"${str%%[![:space:]]*}"}"
+    # trim trailing whitespace
+    str="${str%"${str##*[![:space:]]}"}"
+
+    # strip literal \n at edges
+    # leading
+    while [[ "$str" == '\n'* ]]; do
+        str="${str#\\n}"
+    done
+
+    # trailing
+    while [[ "$str" == *'\n' ]]; do
+        str="${str%\\n}"
+    done
+
+    echo "$str"
+}
+# used in subshells to capture output so export it
+export -f trim
+
+clear_current_line(){
+    # Terminal Codes:
+    #
+    # \r       - position cursor back to column 0
+    # \033[K   - ESC + [K = clear line
+    #
+    printf "\r\033[K"
+}
+
+clear_previous_line(){
+    # Terminal Codes:
+    #
+    # \033[1A  - ESC + [1A = move cursor up one line
+    # \033[2K  - ESC + [2K = clear entire line
+    # \r       - position cursor back to column 0
+    #
+    printf "\033[1A\033[2K\r"
 }
 
 start_timer(){
@@ -741,6 +896,25 @@ startupwait(){
 # shellcheck disable=SC2119
 startupwait
 
+next_available_port(){
+    local local_port="${1:-1024}"
+    local next_port
+    while netstat -lnt | grep -q ":$local_port "; do
+        next_port="$((local_port + 1))"
+        timestamp "Local port '$local_port' in use, trying next port '$next_port'"
+        local_port="$next_port"
+        if [ "$local_port" -gt 65535 ]; then
+            die "ERROR: No local port found available"
+        fi
+    done
+    echo "$local_port"
+}
+
+when_pingable(){
+    local host="$1"
+    ping -o "$host"
+}
+
 when_ports_available(){
     local max_secs="${1:-}"
     if ! [[ "$max_secs" =~ ^[[:digit:]]+$ ]]; then
@@ -752,21 +926,21 @@ when_ports_available(){
     local ports="${*:2}"
     local retry_interval="${RETRY_INTERVAL:-1}"
     if [ -z "$host" ]; then
-        echo "$FUNCNAME: host \$2 not set"
+        echo "$FUNCNAME: host \$2 not set" >&2
         exit 1
     elif [ -z "$ports" ]; then
-        echo "$FUNCNAME: ports \$3 not set"
+        echo "$FUNCNAME: ports \$3 not set" >&2
         exit 1
     else
         for port in $ports; do
             if ! [[ "$port" =~ ^[[:digit:]]+$ ]]; then
-                echo "$FUNCNAME: invalid non-numeric port argument '$port'"
+                echo "$FUNCNAME: invalid non-numeric port argument '$port'" >&2
                 exit 1
             fi
         done
     fi
     if ! [[ "$retry_interval" =~ ^[[:digit:]]+$ ]]; then
-        echo "$FUNCNAME: invalid non-numeric \$RETRY_INTERVAL '$retry_interval'"
+        echo "$FUNCNAME: invalid non-numeric \$RETRY_INTERVAL '$retry_interval'" >&2
         exit 1
     fi
     # Mac nc doesn't have -z switch like Linux GNU version and we can't rely on one being found first in $PATH
@@ -832,21 +1006,21 @@ when_ports_down(){
     local ports="${*:2}"
     local retry_interval="${RETRY_INTERVAL:-1}"
     if [ -z "$host" ]; then
-        echo "$FUNCNAME: host \$2 not set"
+        echo "$FUNCNAME: host \$2 not set" >&2
         return 1
     elif [ -z "$ports" ]; then
-        echo "$FUNCNAME: ports \$3 not set"
+        echo "$FUNCNAME: ports \$3 not set" >&2
         return 1
     else
         for port in $ports; do
             if ! [[ "$port" =~ ^[[:digit:]]+$ ]]; then
-                echo "$FUNCNAME: invalid non-numeric port argument '$port'"
+                echo "$FUNCNAME: invalid non-numeric port argument '$port'" >&2
                 return 1
             fi
         done
     fi
     if ! [[ "$retry_interval" =~ ^[[:digit:]]+$ ]]; then
-        echo "$FUNCNAME: invalid non-numeric \$RETRY_INTERVAL '$retry_interval'"
+        echo "$FUNCNAME: invalid non-numeric \$RETRY_INTERVAL '$retry_interval'" >&2
         return 1
     fi
     #local max_tries=$(($max_secs / $retry_interval))
@@ -856,11 +1030,14 @@ when_ports_down(){
         nc_opts="-z"
     fi
     local nc_cmd="nc -v -w $retry_interval $nc_opts $host < /dev/null"
-    cmd=""
+    # shellcheck disable=SC2178
+    local cmd=""
     for x in $ports; do
+        # shellcheck disable=SC2178
         cmd="$cmd ! $nc_cmd $x &>/dev/null && "
     done
-    local cmd="${cmd% && }"
+    # shellcheck disable=SC2178
+    cmd="${cmd% && }"
     # shellcheck disable=SC2086
     plural_str $ports
     timestamp "waiting for up to $max_secs secs for port$plural '$ports' to go down, retrying at $retry_interval sec intervals"
@@ -906,14 +1083,14 @@ when_url_content(){
     local args="${*:3}"
     local retry_interval="${RETRY_INTERVAL:-1}"
     if [ -z "$url" ]; then
-        echo "$FUNCNAME: url \$2 not set"
+        echo "$FUNCNAME: url \$2 not set" >&2
         exit 1
     elif [ -z "$expected_regex" ]; then
-        echo "$FUNCNAME: expected content \$3 not set"
+        echo "$FUNCNAME: expected content \$3 not set" >&2
         exit 1
     fi
     if ! [[ "$retry_interval" =~ ^[[:digit:]]+$ ]]; then
-        echo "$FUNCNAME: invalid non-numeric \$RETRY_INTERVAL '$retry_interval'"
+        echo "$FUNCNAME: invalid non-numeric \$RETRY_INTERVAL '$retry_interval'" >&2
         exit 1
     fi
     #local max_tries=$(($max_secs / $retry_interval))
@@ -928,8 +1105,15 @@ when_url_content(){
         while [ "$SECONDS" -lt "$max_secs" ]; do
             ((try_number+=1))
             timestamp "$try_number trying $url"
-            # shellcheck disable=SC2086
-            if curl -skL --connect-timeout 1 --max-time 5 ${args:-} "$url" | grep -Eq -- "$expected_regex"; then
+            #
+            # tac reads full content to prevent grep closing stdin from causing this curl error:
+            #
+            #   curl: (23) Failure writing output to destination
+            #
+            # ignore tac exit code from breaking the pipefail
+            #
+            # shellcheck disable=SC2086,SC2119
+            if curl -skL --connect-timeout 1 --max-time 5 ${args:-} "$url" | { tac || : ; } | grep -Eq -- "$expected_regex"; then
                 timestamp "URL content detected '$expected_regex'"
                 found=1
                 break
@@ -1007,7 +1191,6 @@ retry(){
     done
 }
 
-
 timeout(){
     if is_mac; then
         gtimeout "$@"
@@ -1073,8 +1256,8 @@ num_args(){
 help_usage(){
     for arg; do
         case "$arg" in
-            -h|--help)  usage
-                        ;;
+            -h|-help|--help)  usage
+                              ;;
         esac
     done
 }
@@ -1097,13 +1280,18 @@ no_more_args(){
     fi
 }
 
+no_args(){
+    if [ -n "${1:-}" ]; then
+        usage "args given where none expected:  $*"
+    fi
+}
+
 check_env_defined(){
     local env="$1"
     if [ -z "${!env:-}" ]; then
         usage "\$$env not defined"
     fi
 }
-
 
 is_yes(){
     shopt -s nocasematch
@@ -1134,6 +1322,63 @@ is_float(){
     [[ "$arg" =~ ^[[:digit:]]+(\.[[:digit:]]+)?$ ]]
 }
 
+is_bool(){
+    local arg="$1"
+    # intentionally not making this case insensitive in case APIs are touchy about this
+    # calling script can set case matching insensitivity if needed
+    [[ "$arg" =~ ^true|false$ ]]
+}
+
+# [[ regex
+is_regex(){
+    local regex="$1"
+    # right side must not be quoted in order to be properly interpreted as regex
+    [[ "$regex" =~ $regex ]]
+}
+
+is_port(){
+    local port="$1"
+    if ! is_int "$port"; then
+        return 1
+    elif [ "$port" -lt 1 ]; then
+        return 1
+    elif [ "$port" -gt 65535 ]; then
+        return 1
+    fi
+}
+
+is_url(){
+    local arg="$1"
+    [[ "$arg" =~ ^$url_regex$ ]]
+}
+
+exponential(){
+    local int="$1"
+    local max="${2:-}"
+    if ! is_int "$int"; then
+        echo "ERROR: non-integer passed as first arg to exponential() function!" >&2
+        return 1
+    fi
+    if [ -n "$max" ]; then
+        if ! is_int "$max"; then
+            echo "ERROR: non-integer passed as second arg to exponential() function!" >&2
+            return 1
+        fi
+        if [ "$int" -ge "$max" ]; then
+            echo "$max"
+            return
+        fi
+    fi
+    local result
+    result="$((int * 2))"
+    if [ -n "$max" ]; then
+        if [ "$result" -gt "$max" ]; then
+            result="$max"
+        fi
+    fi
+    echo "$result"
+}
+
 parse_export_key_value(){
     local env_var="$1"
     env_var="${env_var%%#*}"
@@ -1156,11 +1401,15 @@ parse_export_key_value(){
 #                                   JSON utils
 # ============================================================================ #
 
+# extremely poor performance on large 3MB json string from https://updates.jenkins.io/current/update-center.actual.json
+# seems to hang, not sure why yet, avoid and use a simpler test in that case
 is_blank(){
     local arg="${*:-}"
     arg="${arg##[[:space:]]}"
     arg="${arg%%[[:space:]]}"
     [ -z "$arg" ]
+    # or
+    #[[ "$arg" =~ ^[[:blank:]]*$ ]]
 }
 
 not_blank(){
@@ -1243,3 +1492,44 @@ jq_is_empty_list(){
     jq -e 'length == 0' >/dev/null
 }
 # ==============================
+
+# parse a .dat file's column to CSV - used to generate data for embedding into MermaidJS mmd config in:
+#
+# git/git_graph_*_mermaidjs.sh
+#   and
+# github/github_graph_*_mermaidjs.sh
+#
+parse_file_col_to_csv(){
+    local data_file="$1"
+    local field="$2"
+    awk "{print \$$field}" "$data_file" |
+    tr '\n' ',' |
+    sed 's/,/, /g; s/, $//'
+}
+
+file_modified_in_last_days(){
+    local file="$1"
+    local days="$2"
+    if ! is_int "$days"; then
+        die "Non-integer passed as second arg to file_modified_in_last_days()"
+    fi
+    if ! [ -f "$file" ]; then
+        return 1
+    elif find "$file" -mtime -"$days" -print | grep -q .; then
+        return 0
+    else
+        local days_ago_in_seconds
+        days_ago_in_seconds="$(date -d "$days days ago" '+%s')"
+        if is_mac; then
+            if [ "$(stat -f '%m' "$file")" -ge "$days_ago_in_seconds" ]; then
+                return 0
+            else
+                return 1
+            fi
+        elif [ "$(stat -c '%Y' "$file")" -ge "$days_ago_in_seconds" ]; then
+            return 0
+        else
+            return 1
+        fi
+    fi
+}

@@ -19,17 +19,17 @@ set -euo pipefail
 [ -n "${DEBUG:-}" ] && set -x
 srcdir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-# shellcheck disable=SC1090
+# shellcheck disable=SC1090,SC1091
 #. "$srcdir/bash-tools/lib/utils.sh"
 
 if ! type -P wget &>/dev/null ||
      type -P apk; then  # Alpine built-in wget isn't good enough
-    "$srcdir/../install_packages.sh" wget
+    "$srcdir/../packages/install_packages.sh" wget
 fi
 
 #/usr/lib/jvm/jre/bin/
 if ! type -P java &>/dev/null; then
-    "$srcdir/install_java.sh"
+    "$srcdir/../install/install_java.sh"
 fi
 
 CASSANDRA_VERSION="${CASSANDRA_VERSION:-3.11.4}"
@@ -51,7 +51,7 @@ echo "Extracting tarball:"
 tar zxf "$TAR"
 
 echo "Removing tarball:"
-rm -fv "$TAR"
+rm -fv -- "$TAR"
 
 # check tarball was extracted to the right place, helps ensure it's the right version and the link will work
 if ! test -d "apache-cassandra-$CASSANDRA_VERSION"; then
@@ -60,9 +60,9 @@ if ! test -d "apache-cassandra-$CASSANDRA_VERSION"; then
 fi
 
 echo "Symlinking cassandra:"
-ln -sv "apache-cassandra-$CASSANDRA_VERSION" cassandra
+ln -sv -- "apache-cassandra-$CASSANDRA_VERSION" cassandra
 
 if [ -f /.dockerenv ]; then
     echo "Running inside docker, removing docs:"
-    rm -rf cassandra/doc cassandra/javadoc
+    rm -rf -- cassandra/doc cassandra/javadoc
 fi

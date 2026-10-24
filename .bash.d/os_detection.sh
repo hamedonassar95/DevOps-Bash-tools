@@ -13,7 +13,7 @@
 #  https://www.linkedin.com/in/HariSekhon
 #
 
-type isLinux &>/dev/null &&
+type is_linux &>/dev/null &&
 type isMac &>/dev/null &&
 type isGoogleCloudShell &>/dev/null &&
 type isAzureCloudShell &>/dev/null &&
@@ -74,11 +74,11 @@ isAzureCloudShell(){
 
 # for compatibility to use the same names as non-interactive lib/
 is_linux(){
-    isLinux "$@"
+    isLinux
 }
 
 is_mac(){
-    isMac "$@"
+    isMac
 }
 
 is_google_cloud_shell(){
@@ -90,7 +90,7 @@ is_azure_cloud_shell(){
 }
 
 # make this safe to import in set -e scripts
-isLinux || :
+is_linux || :
 isMac || :
 isGoogleCloudShell || :
 isAzureCloudShell || :

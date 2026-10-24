@@ -33,9 +33,10 @@ export SEMAPHORE_CI_ORGANIZATION=harisekhon
 
 alias tll="travis_last_log.py"
 
-alias goto=go-tools
+# can't set this to just the shorter 'go' or 'perl' because it'll clash with the actual commands
+alias goto=go_tools
 alias pyt=pytools
-alias to=perl-tools
+alias to=perl_tools
 
 # shellcheck disable=SC2154
 export plugins="$github/nagios-plugins"
@@ -56,5 +57,6 @@ alias pyll="tll /pylib"
 alias tol="tll /tools"
 alias to2="tool2"
 
-alias d2="Dockerfiles2"
+# clashes with the D2 diagramming language
+#alias d2="Dockerfiles2"
 alias Dockerfilesl="tll /Dockerfiles"

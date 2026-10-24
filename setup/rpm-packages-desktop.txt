@@ -68,17 +68,21 @@ fzf
 #games-misc/fortune-mod
 gdb
 geoip
+gimp
 #git # in rpm-packages.txt
 git-core
 gitk
 gkrellm
 gksu
+graphviz  # for the 'dot' command (use with terraform graph), and also github.com/HariSekhon/Diagrams-as-Code
 gt5
 gvim
 heartbeat
 hexedit
+hexyl  # hex viewer - https://github.com/sharkdp/hexyl
 honeyd
 hostapd
+ImageMagick
 incron
 iozone
 iotop
@@ -142,9 +146,13 @@ pastebinit
 pdfgrep
 PEAR-PHP_Shell
 perl-doc
+perl-HTML-Parser
+perl-Image-ExifTool
 pidgin
 pidgin-sipe
+pigz  # parallel gzip
 piozone
+pipenv
 pound
 psh
 psmisc  # for pstree
@@ -158,12 +166,13 @@ rancid
 rancid-cgi
 rancid-core
 rancid-utils
+rbenv
 rdesktop
 router-audit-tool
 rpm-build
 rpmlint
 sbd
-screen
+#screen  # removed in favour of tmux :'-(
 sguil-client
 sguil-sensor
 sguil-server
@@ -181,6 +190,7 @@ tftp
 tftpd
 tilda
 toilet
+tokei  # lines of code counter
 tomboy
 tshark
 virt-manager
@@ -196,6 +206,7 @@ x86info
 xclip
 xdotool
 xkbset
+xmlstartlet
 xosview
 xprobe
 xsel

@@ -39,5 +39,15 @@ hostname
 # not available in RHEL 6 repos
 parallel
 
+# not available as of Rocky Linux 9 or any version of CentOS
+# available from Fedora 31 onwards
+pre-commit
+
 procps     # RHEL <= 7 (RHEL 7 maps procps to procps-ng)
 procps-ng  # RHEL 8
+
+# to give readline wrapping support to Oracle SQL*Plus
+rlwrap
+
+# Not available in any RHEL based system as of Fedora 40
+#sqlfluff

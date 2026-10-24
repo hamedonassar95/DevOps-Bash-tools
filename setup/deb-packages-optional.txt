@@ -15,6 +15,7 @@
 
 direnv
 shellcheck
+yq
 
 # prevents this error:
 # bash-tools/lib/utils.sh: line 41: warning: setlocale: LC_ALL: cannot change locale (en_US.UTF-8): No such file or directory
@@ -29,3 +30,12 @@ python3
 python-pip
 python3-pip
 python-setuptools # needed by 'pip install awscli'
+
+# only available from Debian 12 and Ubuntu 22.04
+pre-commit
+
+# to give readline wrapping support to Oracle SQL*Plus
+rlwrap
+
+# Debian 12+ and Ubuntu 24+
+sqlfluff

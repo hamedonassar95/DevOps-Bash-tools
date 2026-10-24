@@ -17,9 +17,12 @@ set -euo pipefail
 [ -n "${DEBUG:-}" ] && set -x
 srcdir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
+# shellcheck disable=SC1090,SC1091
+. "$srcdir/lib/utils.sh"
+
 # shellcheck disable=SC2034
 usage_description="
-Commits and Renames a Spotify playlist
+Commits and then Renames a Spotify playlist
 
 When Spotify playlist names change and you want to commit the updates which were downloaded to a new non-committed playlist file,
 this script will copy the new playlist file given as the first argument over the old playlist filen given as the second argument,
@@ -29,37 +32,21 @@ playlist file to the new playlist file to align with the spotify_backup*.sh expo
 
 # used by usage() in lib/utils.sh
 # shellcheck disable=SC2034
-usage_args="<playlist_new_name> <playlist_existing_name>"
-
-# shellcheck disable=SC1090
-. "$srcdir/lib/utils.sh"
+usage_args="<old_playlist_name> <new_playlist_name>"
 
 help_usage "$@"
 
-commit_rename(){
-    mv -vf "$1" "$2"
-    cd spotify
-    mv -vf "$1" "$2"
-    cd ..
+num_args 2 "$@"
 
-    "$srcdir/spotify_commit_playlists.sh" "$2"
+old="$1"
+new="$2"
 
-    "$srcdir/spotify_rename_playlist_files.sh" "$2" "$1"
-}
+# Copy the newly downloaded playlist files over the old git committed ones
+# so that we can then commit them under the old name before renaming the safely
+# committed playlist to the new name
+mv -vf -- "$new" "$old"
+mv -vf -- "spotify/$new" "spotify/$old"
 
-if [ $# -gt 0 ]; then
-    commit_rename "$1" "$2"
-else
-    git st --porcelain |
-    grep '^??' |
-    cut -d" " -f 2- |
-    sed 's/spotify\///'|
-    sort -u |
-    while read -r filename; do
-        if [ -f "${filename// /_}" ] &&
-           [ -f "spotify/${filename// /_}" ]; then
-            commit_rename "$filename" "${filename// /_}"
-            read -r -p "Press Enter to continue"
-        fi
-    done
-fi
+"$srcdir/spotify_commit_playlists.sh" "$old"
+
+"$srcdir/spotify_rename_playlist_files.sh" "$old" "$new"

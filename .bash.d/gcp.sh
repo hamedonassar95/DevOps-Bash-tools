@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #  vim:ts=4:sts=4:sw=4:et
-#  shellcheck disable=SC1090
+#  shellcheck disable=SC1090,SC1091
 #
 #  Author: Hari Sekhon
 #  Date: 2019-11-14 22:22:35 +0000 (Thu, 14 Nov 2019)
@@ -21,7 +21,7 @@
 srcdir="${srcdir:-$(dirname "${BASH_SOURCE[0]}")/..}"
 
 # shellcheck disable=SC1090,SC1091
-type add_PATH &>/dev/null || . "$srcdir/.bash.d/paths.sh"
+#type add_PATH &>/dev/null || . "$srcdir/.bash.d/paths.sh"
 
 # adds GCloud CLI tools to $PATH
 if [ -f ~/google-cloud-sdk/path.bash.inc ]; then
@@ -34,6 +34,8 @@ if [ -f ~/google-cloud-sdk/completion.bash.inc ]; then
     source ~/google-cloud-sdk/completion.bash.inc
 fi
 
+export USE_GKE_GCLOUD_AUTH_PLUGIN=True
+
 # having to retype this way too much
 alias gal="gcloud auth login"
 # often bugs me to do this
@@ -45,6 +47,21 @@ alias gc="gcloud container"
 alias gbs="gcloud builds submit --tag"
 alias bqq="bq query"
 alias gssh="gcloud compute ssh"
+
+# open GCP Console in the current project and preferably on a relevant page if we can detect one
+gcpcon(){
+    local project
+    local path
+    # open in the compute instances page if we don't know where else to go
+    path="compute/instances"
+    if [[ "$PWD" =~ kubernetes|k8 ]]; then
+        path="kubernetes/list/overview"
+    elif [[ "$PWD" =~ iam ]]; then
+        path="iam-admin/iam"
+    fi
+    project="${CLOUDSDK_CORE_PROJECT:-$(gcloud config get core.project 2>/dev/null)}"
+    open "https://console.cloud.google.com/$path?project=$project"
+}
 
 # when switching an alias to a function during re-source without un-aliasing, declare function explicitly to avoid errors
 function gcloudconfig(){

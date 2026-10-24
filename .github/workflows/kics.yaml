@@ -11,10 +11,14 @@
 #  https://www.linkedin.com/in/HariSekhon
 #
 
+# ============================================================================ #
+#                                    K i c s
+# ============================================================================ #
+
 ---
 name: Kics
 
-on:
+on:  # yamllint disable-line rule:truthy
   push:
     branches:
       - master
@@ -42,7 +46,7 @@ permissions:
   security-events: write
 
 concurrency:
-  group: ${{ github.ref }}-${{ github.workflow }}
+  group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -52,3 +56,5 @@ jobs:
     if: github.repository_owner == 'HariSekhon'
     name: Kics
     uses: HariSekhon/GitHub-Actions/.github/workflows/kics.yaml@master
+    with:
+      debug: ${{ github.event.inputs.debug }}

@@ -11,22 +11,30 @@
 #  https://www.linkedin.com/in/HariSekhon
 #
 
+# ============================================================================ #
+#                                    J S O N
+# ============================================================================ #
+
+# Validate any JSON files found in the repo
+
 ---
 name: JSON
 
-on:
+on:  # yamllint disable-line rule:truthy
   push:
     branches:
       - master
       - main
     paths:
       - '**/*.json'
+      - .github/workflows/json.yaml
   pull_request:
     branches:
       - master
       - main
     paths:
       - '**/*.json'
+      - .github/workflows/json.yaml
   workflow_dispatch:
     inputs:
       debug:
@@ -46,3 +54,5 @@ jobs:
     if: github.repository_owner == 'HariSekhon'
     name: Check JSON
     uses: HariSekhon/GitHub-Actions/.github/workflows/json.yaml@master
+    with:
+      debug: ${{ github.event.inputs.debug }}

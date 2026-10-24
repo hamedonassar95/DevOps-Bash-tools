@@ -25,7 +25,7 @@ ssh_agent(){
         local SSH_ENV_FILE=~/.ssh-agent.env
         if [ -f "${SSH_ENV_FILE:-}" ]; then
             # shellcheck source=~/.agent.env
-            # shellcheck disable=SC1090
+            # shellcheck disable=SC1090,SC1091
             . "$SSH_ENV_FILE" > /dev/null
 
             if ! kill -0 "$SSH_AGENT_PID" >/dev/null 2>&1; then
@@ -52,5 +52,8 @@ ssh_agent(){
 }
 
 [ -n "${GOOGLE_CLOUD_SHELL:-}" ] && return
+
+# do not launch SSH Agent if we are inheriting an SSH_AUTH_SOCK from an 'ssh -A' agent forwarding connection
+[ -n "${SSH_AUTH_SOCK:-}" ] && return
 
 ssh_agent

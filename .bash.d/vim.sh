@@ -20,7 +20,7 @@
 
 bash_tools="${bash_tools:-$(dirname "${BASH_SOURCE[0]}")/..}"
 
-# shellcheck disable=SC1090
+# shellcheck disable=SC1090,SC1091
 . "$bash_tools/.bash.d/os_detection.sh"
 
 # vim() function is in title.sh as it is tightly integrated with the functions in there and not necessary otherwise
@@ -44,6 +44,10 @@ vimfiletypes(){
 }
 
 gitgrepvim(){
+    if [ $# -lt 2 ]; then
+        echo "usage: gitgrepvim <pattern>"
+        return 3
+    fi
     # want splitting
     # shellcheck disable=SC2046
     vim $(git grep -i "$*" | sed 's/:.*//' | sort -u)
@@ -51,17 +55,30 @@ gitgrepvim(){
 alias ggrepv=gitgrepvim
 
 grepvim(){
+    if [ $# -lt 2 ]; then
+        echo "usage: grepvim <pattern> <files>"
+        return 3
+    fi
     # want splitting
     # shellcheck disable=SC2046
-    vim $(grep -li "$1" "$@" | sort -u)
+    vim $(grep -l "$1" "$@" | sort -u)
 }
 alias grepv=grepvim
 alias vimgrep=grepvim
 
+vimchanged(){
+    local git_root
+    git_root="$(git_root)"
+    # want splitting
+    # shellcheck disable=SC2046
+    vim "$@" $(git status --porcelain | awk '/^.M/ {$1=""; print}' | sed "s|^[[:space:]]|$git_root/|")
+}
+
 filesvim(){
-    local files
-    #files=($(find . -iname "$@" | sort -u))
-    read -r -a files < <(find . -iname "$@" | sort -u)
+    local files=()
+    # mapfile not available on Mac and read -a only takes first result
+    # shellcheck disable=SC2207
+    IFS=$'\n' files=($(find . -iname "$@" | sort -u))
     if [ -n "${files[*]}" ]; then
         vim "${files[@]}"
     fi
@@ -88,4 +105,11 @@ vihosts(){
     [ $EUID -eq 0 ] && sudo="" || sudo=sudo
     $sudo vim /etc/hosts
     $sudo pkill -1 dnsmasq
+}
+
+vimup(){
+    local arg="$1"
+    up_target="$(findup "$arg")"
+    [ -n "$up_target" ] || return 1
+    vim "$(findup "$1")"
 }

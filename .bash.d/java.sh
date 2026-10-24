@@ -20,11 +20,11 @@
 
 bash_tools="${bash_tools:-$(dirname "${BASH_SOURCE[0]}")/..}"
 
-# shellcheck disable=SC1090
+# shellcheck disable=SC1090,SC1091
 . "$bash_tools/.bash.d/os_detection.sh"
 
-# shellcheck disable=SC1090
-type add_PATH &>/dev/null || . "$bash_tools/.bash.d/paths.sh"
+# shellcheck disable=SC1090,SC1091
+#type add_PATH &>/dev/null || . "$bash_tools/.bash.d/paths.sh"
 
 add_PATH CLASSPATH ~/bin/java
 
@@ -34,7 +34,7 @@ export GROOVY_TURN_OFF_JAVA_WARNINGS=true
 #alias rmclass='rm -fv *.class'
 alias rmclass='find . -type f -name "*.class" -exec rm -fv {} \;'
 
-if isMac; then
+if is_mac; then
     mac_export_java_home(){
         local version="$1"
         local args=()
@@ -75,7 +75,7 @@ if isMac; then
         mac_export_java_home
         mac_export_java_home 7
     fi
-elif isLinux; then
+elif is_linux; then
     if [ -z "$JAVA_HOME" ]; then
         # RHEL / CentOS
         if type -P alternatives &>/dev/null; then
@@ -131,6 +131,6 @@ fi
 #}
 
 if ! type sdk &>/dev/null && [ -s ~/.sdkman/bin/sdkman-init.sh ]; then
-    # shellcheck disable=SC1090
+    # shellcheck disable=SC1090,SC1091
     source ~/.sdkman/bin/sdkman-init.sh
 fi

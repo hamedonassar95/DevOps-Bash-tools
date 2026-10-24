@@ -45,8 +45,9 @@ cd "$basedir"
 if ! command -v curl >/dev/null 2>&1; then
     if command -v apt-get >/dev/null 2>&1; then
         export DEBIAN_FRONTEND=noninteractive
-        apt-get update
-        apt-get install -y curl  # --no-install-recommends  # will omit ca-certificates which will break the ability to curl the bootstrap script further down
+        opts="-o DPkg::Lock::Timeout=1200"
+        apt-get update  $opts
+        apt-get install $opts -y curl  # --no-install-recommends  # will omit ca-certificates which will break the ability to curl the bootstrap script further down
     elif command -v yum >/dev/null 2>&1; then
         yum install -y curl
     elif command -v apk >/dev/null 2>&1; then
@@ -57,15 +58,11 @@ fi
 # bourne shell won't detect subshell failure, so better to break this to detectable parts
 #curl -sSf "https://raw.githubusercontent.com/HariSekhon/$repo/master/setup/bootstrap.sh" | sh
 
-trap 'command rm -fv /bootstrap.sh /clean_caches.sh' INT QUIT TRAP ABRT TERM EXIT
+trap 'command rm -fv -- /bootstrap.sh /clean_caches.sh' INT QUIT TRAP ABRT TERM EXIT
 
 curl -sSf "https://raw.githubusercontent.com/HariSekhon/$repo/master/setup/bootstrap.sh" > /bootstrap.sh
 
 sh /bootstrap.sh
-
-if [ "$repo" = pytools ]; then
-    ln -sv "$basedir/python-tools" "$basedir/pytools"
-fi
 
 cd "$basedir/$repo"
 
@@ -73,6 +70,6 @@ if [ -z "${NO_TESTS:-}" ]; then
     make test
 fi
 
-curl -sSf https://raw.githubusercontent.com/HariSekhon/DevOps-Bash-tools/master/clean_caches.sh > /clean_caches.sh
+curl -sSf https://raw.githubusercontent.com/HariSekhon/DevOps-Bash-tools/master/bin/clean_caches.sh > /clean_caches.sh
 
 sh /clean_caches.sh

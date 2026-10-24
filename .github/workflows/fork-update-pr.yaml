@@ -11,10 +11,18 @@
 #  https://www.linkedin.com/in/HariSekhon
 #
 
+# ============================================================================ #
+#                          F o r k   U p d a t e   P R
+# ============================================================================ #
+
+# For a fork of the original repo, activate to keep its branches up to date via Pull Requests
+#
+# To be used in conjunction with the adjacent fork-sync.yaml which keeps the default branch up to date
+
 ---
 name: Fork Update PR
 
-on:
+on:  # yamllint disable-line rule:truthy
   workflow_dispatch:
     inputs:
       debug:
@@ -29,7 +37,7 @@ permissions:
   pull-requests: write
 
 concurrency:
-  group: ${{ github.ref }}-${{ github.workflow }}
+  group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: false
 
 jobs:

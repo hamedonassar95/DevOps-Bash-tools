@@ -37,6 +37,7 @@ kube-shell
 mycli
 nose
 pgcli
+pipenv
 pipx
 # pep8 has been renamed to pycodestyle
 pycodestyle

@@ -17,6 +17,9 @@
 #                                  S c r e e n
 # ============================================================================ #
 
+# quickly open new screen terminal in the same $PWD
+alias scbash="screen bash"
+
 sc(){
     checkprog screen || return 1
     isscreen && { echo "I am already in a screen, aborting"; return 1; }
@@ -71,7 +74,7 @@ screenbuf(){
     tmp="$(mktemp /tmp/screen-exchange.XXXXXX)"
     cat > "$tmp"
     screen -X readbuf "$tmp"
-    rm "$tmp";
+    rm -- "$tmp";
 }
 alias sb=screenbuf
 

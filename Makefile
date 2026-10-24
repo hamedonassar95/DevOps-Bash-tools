@@ -15,15 +15,39 @@ include Makefile.in
 
 REPO := HariSekhon/DevOps-Bash-tools
 
-#CODE_FILES := $(shell find . -type f -name '*.sh' -o -type f -name '.bash*' | sort)
-CODE_FILES := $(shell git ls-files | grep -E -e '\.sh$$' -e '\.bash[^/]*$$' -e '\.groovy$$' | sort)
-
 CONF_FILES := $(shell sed "s/\#.*//; /^[[:space:]]*$$/d" setup/files.txt)
+
+#CODE_FILES := $(shell find . -type f -name '*.sh' -o -type f -name '.bash*' | sort)
+#CODE_FILES := $(shell git ls-files | grep -E -e '\.sh$$' -e '\.bash[^/]*$$' -e '\.groovy$$' | sort)
+CODE_FILES := $(shell \
+	if type git >/dev/null 2>&1; then \
+		git ls-files | \
+		grep -E -e '\.sh$$' -e '\.bash[^/]*$$' -e '\.groovy$$' | \
+		sort | \
+		while read -r filepath; do \
+			test -f "$$filepath" || continue; \
+			test -d "$$filepath" && continue; \
+			test -L "$$filepath" && continue; \
+			echo "$$filepath"; \
+		done; \
+	else \
+		find . -type f; \
+	fi \
+)
+
 
 BASH_PROFILE_FILES := $(shell echo .bashrc .bash_profile .bash.d/*.sh)
 
 #.PHONY: *
 
+CURRENT_BRANCH := $(shell git rev-parse --abbrev-ref HEAD)
+TRUNK_BRANCH := $(shell git symbolic-ref refs/remotes/origin/HEAD | sed 's|.*/||')
+
+DEFAULT_TITLE := [GD-00] - merge $(CURRENT_BRANCH) to $(TRUNK_BRANCH)
+
+title ?= $(DEFAULT_TITLE)
+
+# ===================
 define MAKEFILE_USAGE
 
   Repo specific options:
@@ -73,7 +97,8 @@ build:
 	@echo ================
 	@$(MAKE) git-summary
 	@$(MAKE) init
-	@$(MAKE) system-packages aws github-cli
+	@$(MAKE) system-packages
+	@$(MAKE) aws github-cli
 
 .PHONY: init
 init: git
@@ -82,8 +107,12 @@ init: git
 	@echo
 
 .PHONY: install
-install: build link aws gcp github-cli
-	@:
+install: build
+	@$(MAKE) link
+	@$(MAKE) aws
+	@$(MAKE) gcp
+	@$(MAKE) github-cli
+	@$(MAKE) pip
 
 .PHONY: uninstall
 uninstall: unlink
@@ -105,9 +134,17 @@ unlink:
 mac-desktop: desktop
 	@setup/mac_desktop.sh
 
+.PHONY: mac
+mac: mac-desktop
+	@:
+
 .PHONY: linux-desktop
 linux-desktop: desktop
 	@setup/linux_desktop.sh
+
+.PHONY: linux
+linux: linux-desktop
+	@:
 
 .PHONY:
 ccmenu:
@@ -118,7 +155,11 @@ desktop: install
 	@if [ -x /sbin/apk ];        then $(MAKE) apk-packages-desktop; fi
 	@if [ -x /usr/bin/apt-get ]; then $(MAKE) apt-packages-desktop; fi
 	@if [ -x /usr/bin/yum ];     then $(MAKE) yum-packages-desktop; fi
-	@if [ -x /usr/local/bin/brew -a `uname` = Darwin ]; then $(MAKE) homebrew-packages-desktop; fi
+	@if [ `uname` = Darwin ]; then \
+		if type brew >/dev/null 2>/dev/null; then \
+			$(MAKE) homebrew-packages-desktop; \
+		fi; \
+	fi
 	@# do these late so that we have the above system packages installed first to take priority and not install from source where we don't need to
 	@$(MAKE) perl-desktop
 	@$(MAKE) golang-desktop
@@ -134,14 +175,18 @@ apk-packages-desktop: system-packages
 
 .PHONY: apt-packages-desktop
 apt-packages-desktop: system-packages
-	NO_FAIL=1 NO_UPDATE=1 $(BASH_TOOLS)/apt_install_packages.sh setup/deb-packages-desktop.txt
+	NO_FAIL=1 NO_UPDATE=1 $(BASH_TOOLS)/packages/apt_install_packages.sh setup/deb-packages-desktop.txt
 
 .PHONY: yum-packages-desktop
 yum-packages-desktop: system-packages
-	NO_FAIL=1 NO_UPDATE=1 $(BASH_TOOLS)/yum_install_packages.sh setup/rpm-packages-desktop.txt
+	NO_FAIL=1 NO_UPDATE=1 $(BASH_TOOLS)/packages/yum_install_packages.sh setup/rpm-packages-desktop.txt
 
 .PHONY: homebrew-packages-desktop
 homebrew-packages-desktop: system-packages homebrew
+	@:
+
+.PHONY: brew-packages-desktop
+brew-packages-desktop: homebrew-packages-desktop
 	@:
 
 .PHONY: homebrew
@@ -150,9 +195,13 @@ homebrew: system-packages brew
 
 .PHONY: brew
 brew:
-	NO_FAIL=1 NO_UPDATE=1 $(BASH_TOOLS)/brew_install_packages.sh setup/brew-packages-desktop.txt
-	NO_FAIL=1 NO_UPDATE=1 CASK=1 $(BASH_TOOLS)/brew_install_packages.sh setup/brew-packages-desktop-casks.txt
-	NO_FAIL=1 NO_UPDATE=1 TAP=1 $(BASH_TOOLS)/brew_install_packages.sh setup/brew-packages-desktop-taps.txt
+	which -a brew || install/install_homebrew.sh
+	which -a wget || brew install wget
+	NO_FAIL=1 NO_UPDATE=1 $(BASH_TOOLS)/packages/brew_install_packages_if_absent.sh setup/brew-packages-desktop.txt
+	NO_FAIL=1 NO_UPDATE=1 CASK=1 $(BASH_TOOLS)/packages/brew_install_packages_if_absent.sh setup/brew-packages-desktop-casks.txt
+	@# doesn't pass the packages correctly yet
+	@#NO_FAIL=1 NO_UPDATE=1 TAP=1 $(BASH_TOOLS)/packages/brew_install_packages.sh setup/brew-packages-desktop-taps.txt
+	NO_FAIL=1 NO_UPDATE=1 TAP=1 $(BASH_TOOLS)/packages/brew_install_packages.sh setup/brew-packages-desktop-taps.txt
 
 .PHONY: perl-desktop
 perl-desktop: system-packages cpan-desktop
@@ -160,7 +209,7 @@ perl-desktop: system-packages cpan-desktop
 
 .PHONY: cpan-desktop
 cpan-desktop: cpan
-	NO_FAIL=1 NO_UPDATE=1 $(BASH_TOOLS)/perl_cpanm_install_if_absent.sh setup/cpan-packages-desktop.txt
+	NO_FAIL=1 NO_UPDATE=1 $(BASH_TOOLS)/perl/perl_cpanm_install_if_absent.sh setup/cpan-packages-desktop.txt
 
 .PHONY: golang-desktop
 golang-desktop: system-packages go-desktop
@@ -172,7 +221,7 @@ go-desktop: system-packages go
 
 .PHONY: go
 go:
-	NO_FAIL=1 $(BASH_TOOLS)/golang_get_install_if_absent.sh setup/go-packages-desktop.txt
+	NO_FAIL=1 $(BASH_TOOLS)/packages/golang_install_if_absent.sh setup/go-packages-desktop.txt
 
 .PHONY: ruby-desktop
 ruby-desktop: system-packages gem-desktop
@@ -180,27 +229,40 @@ ruby-desktop: system-packages gem-desktop
 
 .PHONY: gem-desktop
 gem-desktop: gem
-	NO_FAIL=1 $(BASH_TOOLS)/ruby_gem_install_if_absent.sh setup/gem-packages-desktop.txt
+	NO_FAIL=1 $(BASH_TOOLS)/packages/ruby_gem_install_if_absent.sh setup/gem-packages-desktop.txt
 
 .PHONY: python-desktop
 python-desktop: system-packages pip-desktop
 
 .PHONY: pip
 pip-desktop: pip
-	./python_pip_install_if_absent.sh setup/pip-packages-desktop.txt
+	PIP=$(PIP) ./python/python_pip_install_if_absent.sh setup/pip-packages-desktop.txt
+	if uname -s | grep -q Darwin; then \
+		PIP=$(PIP) ./python/python_pip_install_if_absent.sh setup/pip-packages-mac.txt; \
+	fi
 
 .PHONY: nodejs-desktop
 nodejs-desktop: system-packages npm-desktop
 
 .PHONY: npm-desktop
 npm-desktop: npm
-	$(BASH_TOOLS)/nodejs_npm_install_if_absent.sh $(BASH_TOOLS)/setup/npm-packages-desktop.txt
+	$(BASH_TOOLS)/packages/nodejs_npm_install_if_absent.sh $(BASH_TOOLS)/setup/npm-packages-desktop.txt
 
 .PHONY: aws
 aws: system-packages python-version
-	@setup/install_aws_cli.sh
+	@if ! command -v aws; then install/install_aws_cli.sh; fi
+#    @$(MAKE) codecommit
+#
+#.PHONY: codecommit
+#codecommit:
 	@# needed for github_mirror_repos_to_aws_codecommit.sh and dependent GitHub Actions workflows
-	@grep '^git-remote-codecommit' requirements.txt | ./python_pip_install_if_absent.sh || :
+	@if uname -s | grep -q Darwin; then \
+		xargs(){ \
+			gxargs "$$@"; \
+		}; \
+	fi; \
+	grep '^git-remote-codecommit' requirements.txt | \
+	PIP=$(PIP) xargs --no-run-if-empty ./python/python_pip_install_if_absent.sh || :
 
 .PHONY: aws-shell
 aws-shell:
@@ -209,7 +271,7 @@ aws-shell:
 
 .PHONY: azure
 azure: system-packages
-	@setup/install_azure_cli.sh
+	@install/install_azure_cli.sh
 
 .PHONY: azure-shell
 azure-shell: link
@@ -217,8 +279,8 @@ azure-shell: link
 
 .PHONY: gcp
 gcp: system-packages
-	@./setup/install_gcloud_sdk.sh
-	@./setup/install_cloud_sql_proxy.sh
+	@./install/install_gcloud_sdk.sh
+	@./install/install_cloud_sql_proxy.sh
 
 .PHONY: gcp-shell
 gcp-shell:
@@ -230,7 +292,14 @@ github-cli: ~/bin/gh
 	@:
 
 ~/bin/gh:
-	setup/install_github_cli.sh
+	install/install_github_cli.sh
+
+.PHONY:
+digital-ocean: ~/bin/doctl
+	@:
+
+~/bin/doctl:
+	install/install_doctl.sh
 
 .PHONY: kubernetes
 kubernetes: kubectl kustomize
@@ -245,21 +314,21 @@ kubectl: ~/bin/kubectl
 	@:
 
 ~/bin/kubectl:
-	setup/install_kubectl.sh
+	install/install_kubectl.sh
 
 .PHONY: kustomize
 kustomize: ~/bin/kustomize
 	@:
 
 ~/bin/kustomize:
-	setup/install_kustomize.sh
+	install/install_kustomize.sh
 
 .PHONY: vim
 vim: ~/.vim/bundle/Vundle.vim
 	@:
 
 ~/.vim/bundle/Vundle.vim:
-	setup/install_vundle.sh
+	install/install_vundle.sh
 
 .PHONY: tmux
 tmux: ~/.tmux/plugins/tpm ~/.tmux/plugins/kube.tmux
@@ -273,11 +342,11 @@ tmux: ~/.tmux/plugins/tpm ~/.tmux/plugins/kube.tmux
 
 .PHONY: test
 test:
-	./check_all.sh
+	./checks/check_all.sh
 
 .PHONY: clean
 clean:
-	@rm -fv setup/terraform.zip
+	@rm -fv -- setup/terraform.zip
 
 .PHONY: ls-scripts
 ls-scripts:
@@ -318,4 +387,58 @@ pip-mapping: pipreqs-mapping
 
 .PHONY: status-page
 status-page:
-	./generate_status_page.sh; . .bash.d/git.sh; gitu STATUS.md
+	./cicd/generate_status_page.sh; . .bash.d/git.sh; gitu STATUS.md
+
+.PHONY: dialog-install
+dialog-install:
+	install/install_packages.sh dialog
+
+# Raise Pull Requests from the command line like this:
+#
+#	You need GitHub CLI installed ('make' installs it for you) and authenticated eg.:
+#
+#		gh auth login
+#
+#		# https://cli.github.com/manual/gh_auth_login
+#
+#	Example:
+#
+#		make pr title="Hari code to avoid clicking"
+#
+.PHONY: pr
+pr: dialog-install
+	git push --set-upstream origin "$(CURRENT_BRANCH)"
+	if [ -z "$$GITHUB_PULL_REQUEST_TITLE" ]; then \
+		if [ "$(title)" = "$(DEFAULT_TITLE)" ]; then \
+			GITHUB_PULL_REQUEST_TITLE="$$(dialog --inputbox "Pull Request Title:" 8 40 "$(DEFAULT_TITLE)" 3>&1 1>&2 2>&3)"; \
+		else \
+			GITHUB_PULL_REQUEST_TITLE="$(title)"; \
+		fi; \
+	fi; \
+	export GITHUB_PULL_REQUEST_TITLE; \
+	github_pull_request_create.sh \
+		"$(REPO)" \
+		"$(CURRENT_BRANCH)" \
+		"$(TRUNK_BRANCH)"
+
+# raise a PR in one command with Auto-Merge enabled - use this for trivial PRs of low / no impact like MkDocs updates
+.PHONY: auto-pr
+auto-pr: update
+	@# - if GITHUB_PULL_REQUEST_AUTO_MERGE=true then marks the PR for auto-merge once it is approved and passes pre-requisite checks
+	@# - if GITHUB_PULL_REQUEST_SQUASH=true while GITHUB_PULL_REQUEST_AUTO_MERGE=true then it marks
+	@#   the PR's auto-merge to be done using a squash commit to avoid any CLI prompt for how to merge it
+	GITHUB_PULL_REQUEST_AUTO_MERGE=true \
+	GITHUB_PULL_REQUEST_SQUASH=true \
+	$(MAKE) pr
+
+# Example:
+#
+#	make autopr title="Documented something"
+#
+.PHONY: autopr
+autopr: auto-pr
+	@:
+
+.PHONY: sync
+sync:
+	sync_configs_to_adjacent_repos.sh

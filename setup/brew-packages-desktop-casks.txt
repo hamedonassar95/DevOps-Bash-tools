@@ -3,24 +3,47 @@
 #  Date: 2011-06-01 16:58:33 +0000 (Wed, 01 Jun 2011)
 #
 
-# run: CASK=1 ../brew_install_packages.sh brew-packages-desktop-casks.txt
+# run: CASK=1 ../packages/brew_install_packages.sh brew-packages-desktop-casks.txt
 
+alfred
 anaconda
 atom
+barrier
+blackhole-2ch  # to create multi-output sound device to shazam songs from shows while using headphones
+blurred  # dims background apps to let you focus on the in-focus window
 ccmenu
+#claude-code  # use native installer which auto-updates: curl -fsSL https://claude.ai/install.sh | bash
 codeship/taps/jet
 docker
+flux-app
+#insomnia  # Kong Rest API testing client desktop app
 #iterm2
-firefox-developer-edition
+#firefox-developer-edition
 google-chrome
 google-cloud-sdk
+#google-earth-pro
+grandperspective  # like Disk Inventory X - GUI disk space analysis
+hammerspoon  # system event handler
+hiddenbar  # collapsable space to tuck away menu bar items
+#intellij-idea-ce  # in main packages now
+jordanbaird-ice  # menu bar manager
 keepassxc
 keka
 minikube
 minishift
+multipass  # instant Ubuntu VMs
+#omnidisksweeper  # GUI disk space analysis
+#only-switch
 podman
 postman
 powershell
+protonvpn
+raycast
+rectangle
 spotify
+transmission
+tor-browser
 vagrant
 virtualbox
+vnc-viewer
+wireshark  # installs GUI, without cask only install CLI utils like tshark

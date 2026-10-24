@@ -20,12 +20,10 @@
 
 bash_tools="${bash_tools:-$(dirname "${BASH_SOURCE[0]}")/..}"
 
-# shellcheck disable=SC1090
+# shellcheck disable=SC1090,SC1091
 #. "$bash_tools/.bash.d/os_detection.sh"
 
-if ! type add_PATHS &>/dev/null ; then
-    . "$bash_tools/.bash.d/paths.sh"
-fi
+type add_PATH &>/dev/null || . "$bash_tools/.bash.d/paths.sh"
 
 # gems will be installed to ~/.gem/ruby/x.y.z/bin
 
@@ -39,10 +37,14 @@ fi
 if [ -n "${rvm_bin_path:-}" ];then
     add_PATH "$rvm_bin_path"
 fi
+
 if [ -d /usr/local/rvm/bin ]; then
     add_PATH /usr/local/rvm/bin
 fi
 
+if [ -d ~/.rvm/bin ]; then
+    add_PATH ~/.rvm/bin
+fi
 
 # ============================================================================ #
 #                                   R b E n v
@@ -53,6 +55,7 @@ if [ -f ~/.rbenv/bin ]; then
     add_PATH ~/.rbenv/bin
 fi
 
+#eval "$(rbenv init - --no-rehash bash)"
 
 # ============================================================================ #
 #                          R u b y   U s e r   D i r s
@@ -60,12 +63,16 @@ fi
 # Ruby User Dirs
 
 # add newest ruby to path first
-ruby_bins="$(find ~/.gem/ruby -maxdepth 2 -name bin -type d 2>/dev/null)"
-if isMac; then
-    ruby_bins_newest="$(tail -r <<< "$ruby_bins")"
-else
-    ruby_bins_newest="$(tac <<< "$ruby_bins")"
-fi
+ruby_bins="$(
+    find ~/.gem/ruby -maxdepth 2 -name bin -type d 2>/dev/null
+    find ~/.local/share/gem/ruby -maxdepth 2 -name bin -type d 2>/dev/null
+)"
+#if is_mac; then
+#    ruby_bins_newest="$(tail -r <<< "$ruby_bins")"
+#else
+#    ruby_bins_newest="$(tac <<< "$ruby_bins")"
+#fi
+ruby_bins_newest="$(sort -Vr <<< "$ruby_bins")"
 for ruby_bin in $ruby_bins_newest; do
     add_PATH "$ruby_bin"
 done

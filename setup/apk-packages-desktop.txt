@@ -13,4 +13,9 @@
 #                      Alpine Desktop Package Requirements
 # ============================================================================ #
 
+netcat-openbsd
+perl-html-parser
 skopeo
+steghide
+tokei  # lines of code counter
+xmlstartlet

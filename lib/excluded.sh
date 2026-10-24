@@ -42,6 +42,7 @@ isExcluded(){
     #[[ "$prog" =~ /\. ]] && return 0
     [[ "$prog" =~ /\.git/ ]] && return 0
     [[ "$prog" =~ ^\.git/ ]] && return 0
+    [[ "$prog" =~ \.external_modules/ ]] && return 0
     [[ "$prog" =~ /templates/ ]] && return 0
     [[ "$prog" =~ TODO ]] && return 0
     [[ "$prog" =~ /inc/Module/.*\.pm ]] && return 0
@@ -52,14 +53,33 @@ isExcluded(){
             return 0
         fi
     fi
-    # this external git check is expensive, skip it when in CI as using fresh git checkouts
-    is_CI && return 1
-    # shellcheck disable=SC2230
-    if type -P git &>/dev/null; then
-        commit="$(git log "$prog" 2>/dev/null | head -n1 | grep 'commit' || :)"
-        if [ -z "$commit" ]; then
+    # optimization to avoid fork
+    #if ! uname -s | grep -q Darwin; then
+    if ! [[ "${OSTYPE:-}" == darwin* ]]; then
+        if [[ "$prog" =~ /applescript/ ]]; then
             return 0
         fi
     fi
+    #if is_CI &&
+    #   git rev-parse --is-inside-work-tree &>/dev/null; then
+    #    echo "Running in CI and within Git repo checkout, skipping submodules"
+    #    # sufficient as long as no submodule dirs have spaces in them
+    #    #submodules="$(git submodule | awk '{print $2}')"
+    #    submodules="$(git submodule | cut -c 43- | cut -f 1 -d'(')"
+    #    for submodule_dir in $submodules; do
+    #        if [[ "$prog" =~ /$submodule_dir/ ]]; then
+    #            return 0
+    #        fi
+    #    done
+    #fi
+    # this external git check is expensive, skip it when in CI as using fresh git checkouts
+    #is_CI && return 1
+    ## shellcheck disable=SC2230
+    #if type -P git &>/dev/null; then
+    #    commit="$(git log "$prog" 2>/dev/null | head -n1 | grep 'commit' || :)"
+    #    if [ -z "$commit" ]; then
+    #        return 0
+    #    fi
+    #fi
     return 1
 }

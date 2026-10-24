@@ -26,8 +26,45 @@ srcdir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck disable=SC1090
 . "$srcdir/utils.sh"
 
+is_git_repo(){
+    local target=${1:-.};
+    if [ -d "$target/.git" ]; then
+        return 0;
+    else
+        if [ -f "$target" ] && [ -d "${target%/*}/.git" ]; then
+            return 0;
+        else
+            if [ -d "$target" ]; then
+                pushd "$target" > /dev/null || return 1;
+                if git status >&/dev/null; then
+                    popd >&/dev/null;
+                    return 0;
+                fi;
+            else
+                pushd "$(dirname "$target")" > /dev/null || return 1;
+                if git status >&/dev/null; then
+                    popd >&/dev/null;
+                    return 0;
+                fi;
+            fi;
+            popd >&/dev/null;
+            return 2;
+        fi;
+    fi
+}
+
 git_repo(){
-    git remote -v 2>/dev/null |
+    # give preference for origin, then GitHub, GitLab, Bitbucket, Azure DevOps in that order
+    local remotes
+    remotes="$( git remote -v 2>/dev/null)"
+    {
+        awk 'BEGIN {IGNORECASE=1} $1 ~ /origin/ {print}' <<< "$remotes"
+        awk 'BEGIN {IGNORECASE=1} $1 ~ /github/ {print}' <<< "$remotes"
+        awk 'BEGIN {IGNORECASE=1} $1 ~ /gitlab/ {print}' <<< "$remotes"
+        awk 'BEGIN {IGNORECASE=1} $1 ~ /bitbucket/ {print}' <<< "$remotes"
+        awk 'BEGIN {IGNORECASE=1} $1 ~ /azure/ {print}' <<< "$remotes"
+        echo "$remotes"
+    } |
     awk '{print $2}' |
     head -n1 |
     sed '
@@ -35,6 +72,8 @@ git_repo(){
         s/.*@//;
         s/[^:/]*[:/]//;
         s/\.git$//;
+        s|^/||;
+        s|/[^/]*/_git/|/|;
     '
 }
 
@@ -52,8 +91,71 @@ git_root(){
     git rev-parse --show-toplevel
 }
 
+git_root_basedir(){
+    local git_root
+    git_root="$(git_root)"
+    echo "${git_root##*/}"
+}
+
+git_relative_dir(){
+    if ! is_in_git_repo; then
+        echo "Error: not in a git repo when trying to determine git_relative_dir()" >&2
+    fi
+    local git_root
+    local git_root_basedir
+    git_root="$(git_root)"
+    git_root_basedir="$(git_root_basedir)"
+    # false positive - this works in Bash (tested on Mac)
+    # shellcheck disable=SC2295
+    echo "$git_root_basedir/${PWD##$git_root/}"
+}
+
 is_in_git_repo(){
-    git_root &>/dev/null
+    #git_root &>/dev/null
+    git rev-parse --is-inside-work-tree &>/dev/null
+}
+
+is_file_tracked_in_git(){
+    local filename="$1"
+    git ls-files --error-unmatch -- "$filename" &>/dev/null
+}
+
+is_git_hashref(){
+    local hashref="$1"
+    if is_git_hashref_long "$hashref" ||
+       is_git_hashref_short "$hashref"; then
+        return 0
+    fi
+    return 1
+}
+
+is_git_hashref_long(){
+    local hashref="$1"
+    if [[ "$hashref" =~ ^[0-9a-fA-F]{40}$ ]]; then
+        return 0
+    fi
+    return 1
+}
+
+is_git_hashref_short(){
+    local hashref="$1"
+    if [[ "$hashref" =~ ^[0-9a-fA-F]{7}$ ]]; then
+        return 0
+    fi
+    return 1
+}
+
+git_commit_short_sha(){
+    git rev-parse --short HEAD
+}
+
+current_branch(){
+    git rev-parse --abbrev-ref HEAD
+}
+
+default_branch(){
+    git remote show origin |
+    sed -n '/HEAD branch/ s/.\+:[[:space:]]\+//p'
 }
 
 allbranches(){
@@ -98,6 +200,7 @@ foreachbranch(){
             continue
         fi
         echo "$branch:"
+        # shellcheck disable=SC2294
         if git branch | grep -Fq --color=auto "$branch"; then
             git checkout "$branch"
         else
@@ -135,7 +238,7 @@ git_provider_env(){
     elif [ "$name" = "bitbucket" ]; then
         domain=bitbucket.org
         user="${BITBUCKET_USERNAME:-${BITBUCKET_USER:-}}"
-        token="${BITBUCKET_TOKEN:-${BITBUCKET_PASSWORD:-}}"
+        token="${BITBUCKET_APP_PASSWORD:-${BITBUCKET_TOKEN:-${BITBUCKET_PASSWORD:-}}}"
     elif [ "$name" = "azure" ]; then
         domain=dev.azure.com
         user="${AZURE_DEVOPS_USERNAME:-${AZURE_DEVOPS_USER:-}}"
@@ -194,9 +297,13 @@ git_to_azure_url(){
 azure_to_git_url(){
     local url="$1"
     url="${url/:v3\//:}"
-    url="${url/\/_git\//\/}"
-    # XXX: strip the middle component out from git@ssh.dev.azure.com:v3/harisekhon/GitHub/DevOps-Bash-tools
-    url="$(perl -pe 's/([\/:][^\/:]+)(\/[^\/]+)(\/[^\/]+)$/$1$3/' <<< "$url")"
+    #url="${url/\/_git\//\/}"
+    # XXX: strip the middle component out from Azure URLs that aren't found in other major Git providers like GitHub / GitLab / Bitbucket:
+    #
+    #   git@ssh.dev.azure.com:v3/harisekhon/GitHub/DevOps-Bash-tools
+    #   https://dev.azure.com/harisekhon/GitHub/_git/DevOps-Bash-tools
+    #
+    url="$(perl -pe 's/([\/:][^\/:]+)\/[^\/]+\/_git(\/[^\/]+)$/$1$2/' <<< "$url")"
     echo "$url"
 }
 

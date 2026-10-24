@@ -53,7 +53,7 @@ fi
 # shellcheck disable=SC2154
 # export PS1+="\[$PS1_COLOUR\]\t \[$bldblu\]\w \[$PS1_COLOUR\]> \[$txtrst\]"
 # shellcheck disable=SC1117
-export PS1+="\[$PS1_COLOUR\]\t \[$PS1_USER_COLOUR\]\u\[$txtwht\]@\[$bldgrn\]\h:\[$bldpur\]\$(git branch 2>/dev/null | awk '/^\\*/{print \$2\" \"}')\[$bldblu\]\w \[$PS1_COLOUR\]> \[$txtrst\]"
+export PS1+="\[$PS1_COLOUR\]\t \[$PS1_USER_COLOUR\]\u\[$txtwht\]@\[$bldcyn\]\h:\[$bldpur\]\$(git branch 2>/dev/null | grep '^*' | sed 's/^*//') \[$bldgrn\]\w \[$PS1_COLOUR\]> \[$txtrst\]"
 
 #if type kube_ps1 &>/dev/null; then
 #    PS1='$(kube_ps1)'" $PS1"
@@ -96,7 +96,7 @@ debug_bash_profile(){
     PS4='+ $BASH_SOURCE:$LINENO:' bash -xlic '' 2>&1 | less
 }
 
-if isMac; then
+if is_mac; then
     # turn this off on mac thing - it heavily pollutes $DEBUG output and does nothing because we have a custom prompt
     if [[ "${PROMPT_COMMAND:-}" =~ update_terminal_cwd ]]; then
         # this unsets direnv's hook

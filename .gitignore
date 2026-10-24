@@ -121,7 +121,7 @@
 .Codefresh/agent/
 .compiz
 .conda/
-.config
+#.config
 # contains repo_token / COVERALLS_REPO_TOKEN
 .coveralls.yml
 .cpan/build/
@@ -257,7 +257,7 @@
 .rstudio-desktop/
 .rbenv/
 # 'rbenv local' $PWD version file
-.ruby-version
+#.ruby-version
 .sbt/[[:digit:]].[[:digit:]]*/
 .sbt/boot/
 .sbt/preloaded/
@@ -346,8 +346,8 @@ bin/contrib/*
 bin/desktops
 bin/firewalls
 bin/servers
-bitbucket/
-bitbucket/*
+#bitbucket/
+#bitbucket/*
 boxes/
 Box Documents/
 # contains webhook URL which should not be committed publicly
@@ -371,15 +371,15 @@ fatlib/
 fluxbox-themes
 fluxbox/debian007.jpg
 # internal repos
-git/
-git/*
+#git/
+#git/*
 # public repos - clashes with TeamCity-CI repo's .teamcity/GitHub
 #github/
 #github/*
 gitolite-admin/
 gitroot/
 GNUstep
-Google*Drive
+#Google*Drive
 go/bin/
 go/src/github.com/
 google-cloud-sdk/
@@ -469,6 +469,44 @@ wordlists/users.weighted
 *.rtf
 *.wpd
 *.wps
+
+# ============================================================================ #
+#                           M o b i l e   B u i l d s
+# ============================================================================ #
+
+# SwiftPackageManager
+Packages
+
+# Obj-C/Swift specific
+*.hmap
+
+# App packaging
+*.ipa
+*.dSYM.zip
+*.dSYM
+
+# Playgrounds
+timeline.xctimeline
+playground.xcworkspace
+
+.build/
+
+# Fastlane
+fastlane/report.xml
+fastlane/Preview.html
+fastlane/screenshots/**/*.png
+fastlane/screenshots/**/*.jp*g
+fastlane/test_output
+fastlane/.env.default
+
+iOSInjectionProject/
+
+# ixGuard
+ixguard-license.txt
+mapping.yml
+protectionreport.html
+statistics.yml
+telemetry_dump.json
 
 # ============================================================================ #
 #
@@ -776,7 +814,7 @@ m4/lt~obsolete.m4
 *.apples
 
 # Initialized files
-*.ini
+#*.ini  # used by Ansible for inventory.ini
 *.basic
 
 ### BitTorrent ###
@@ -3264,7 +3302,7 @@ fastlane/report.xml
 fastlane/Preview.html
 fastlane/screenshots
 fastlane/test_output
-fastlane/readme.md
+#fastlane/readme.md
 
 # Version control
 vcs.xml
@@ -3403,7 +3441,7 @@ DerivedData/
 # General
 
 # Icon must end with two \r
-Icon
+Icon
 
 # Thumbnails
 
@@ -3518,7 +3556,7 @@ project/plugins/project/
 
 # http://www.sonarlint.org/commandline/
 # SonarLint working directories, configuration files (including credentials)
-.sonarlint/
+#.sonarlint/
 
 ### Spark ###
 *#*#
@@ -3708,7 +3746,7 @@ override.tf.json
 #[Ll]ib
 [Ll]ib64
 [Ll]ocal
-[Ss]cripts
+#[Ss]cripts
 pyvenv.cfg
 pip-selfcheck.json
 
@@ -4340,3 +4378,8 @@ iOSInjectionProject/
 # Ionide (cross platform F# VS Code tools) working folder
 
 # End of https://www.toptal.com/developers/gitignore/api/ansible,apachehadoop,appcode,appengine,archive,archives,archlinuxpackages,audio,autotools,backup,basic,batch,bittorrent,c,c++,certificates,chefcookbook,clojure,cloud9,cmake,code,code-java,codeblocks,compressed,compressedarchive,compression,data,database,datarecovery,diff,direnv,diskimage,docfx,docpress,docz,dotenv,dotfilessh,dotsettings,dropbox,eclipse,emacs,erlang,executable,firebase,flask,git,gitbook,go,gpg,gradle,grails,groovy,grunt,haskell,helm,homebrew,hugo,images,intellij,intellij+all,intellij+iml,java,java-web,jenv,jetbrains,jetbrains+all,jetbrains+iml,jmeter,julia,jupyternotebooks,kotlin,lamp,latex,less,linux,lua,macos,matlab,maven,mercurial,microsoftoffice,node,octave,osx,packer,patch,perl,perl6,phpunit,powershell,puppet,putty,pycharm,pycharm+all,pycharm+iml,pydev,python,r,rails,react,reactnative,redis,root,ruby,rust,sbt,scala,serverless,sonar,sonarqube,spark,splunk,spreadsheet,ssh,sublimetext,svn,terraform,terragrunt,tortoisegit,vagrant,venv,virtualenv,visualstudio,visualstudiocode,vs,vscode,vue,vuejs,waf,windows,xcode,xcodeinjection,zsh
+
+# for DevOps-Bash-tools packages/*.sh scripts
+## needed to unmask directory ignore above otherwise !packages/*packages*.sh isn't respected
+!packages/
+!packages/*.sh

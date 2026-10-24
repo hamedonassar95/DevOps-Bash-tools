@@ -36,86 +36,153 @@ https://raw.githubusercontent.com/jingweno/spotctl/master/Formula/spotctl.rb
 
 # Install HomeBrew Desktop packages - one per line
 ack
+act  # runs GitHub Actions locally
+agg  # converts asciicast terminal recording to gif
 amazon-ecs-cli
-amazon-sam-cli
+#amazon-sam-cli  # no longer found
 ansible
 ansible-lint
+aria2  # optionally used by xcodes for downloading, supports resuming and segmented downloading
+archey4  # displays system info in text
 argocd
+asciinema  # records terminal to asciicast
+asdf
 #atomicparsley  # mp4 cli tool
 autoconf
 autojump
 autossh
+#avidemux  # video editor - doesn't install, fails gatekeeper check
 #awsume
 #aws-iam-authenticator
 bash  # version 5, not old version 3 from Apple due to licensing
-bash-completion
+#bash-completion  # slows down spawning new shells which I do frequently
 #bazel
 bazelisk  # bazel wrapper downloader like mvnw/gradlew, addes 'bazel' to $PATH so conflicts with bazel package above
 brew-cask-completion
+#duckdb  # open-source in-memory columnar RDBMS, see Knowledge Base for more details: https://github.com/HariSekhon/Knowledge-Base
 cfssl
 #cfn-lint
 checkov
 checkstyle
 circleci
+clamav
+#clair  # container vulnerability scanner by quay.io - this is the server, not clairctl
+cliclick
 cmatrix
+cloc  # count lines of code - code / comment / blank
 colordiff
+colima  # CLI Docker container runtime (use 'docker' client after 'colima start')
+cosign
 cowsay
 #coreutils # in brew-packages.txt
 csshx
 #ctags
+ctop  # container top
+cursor  # AI editor
+cursor-cli
+#cyberduck  # GUI client for FTP, SFTP, WebDAV, Amazon S3, Google Drive etc.
+d2  # declarative diagram language
+dateutils  # strptime, dateadd, dateconv, datediff, dategrep, dateseq, datesort, datetest, datezone - https://www.fresse.org/dateutils/
+dbeaver-community
+dhcping
+dhcpdump
+dialog  # create a curses interactive menu
 diff-so-fancy
-diffpdf
+diff-pdf
+#diffutils  # GNU diff, diff3, sdiff, cmp commands - links to /opt/homebrew/bin/ and depending on $PATH ordering may supplant Mac's BSD diff
 direnv
+disk-inventory-x
+dive  # analyze docker image layers
 dnsmasq
 dnstop
 docker-completion
 docker-compose-completion
+doctl  # Digital Ocean CLI
 dos2unix
 drone-cli
+duti  # displays or set the default application for a given file extension or URL
 e2fsprogs
 #ec2-api-tools
 eksctl
+entr  # execute commands upon file changes
+eslint  # Javascript linter
 expect
 etcd
+exiftool  # view image metadata
+exiv2     # view image metadata
+#ext4fuse  # to read Linux partitions eg. on external hard drives
+fastlane  # for Mobile CI/CD development
 ffmpeg
+#filezilla  # GUI ftp client - not found
+fio  # disk I/O speed test
+firebase-cli
 fish
+flyscrape
 fortune
+fping  # scriptable fast ping for multiple hosts
 fswatch
 fzf
 gcc
 gem-completion
-gh  # GitHub CLI
+#gh  # GitHub CLI - moved to core packages
+gimp
 #git  # comes with macOS XCode
+git-credential-manager  # prompts for HTTPS creds in browser and caches them locally to HTTPS checkouts
+git-lfs
+git-filter-repo  # recommended to use instead of 'git filter-branch' in its man page
 #gnu-sed  # in brew-packages.txt
 #gnupg
 gnupg2
 gnuplot
+gping  # graphs pings in terminal interactive ascii art
 gradle
-gradle-completion
-graphviz  # for the 'dot' command (use with terraform graph)
+#gradle-completion  # forces bash-completion which slows down my shells
+#grafana
+graphviz  # for the 'dot' command (use with terraform graph), and also github.com/HariSekhon/Diagrams-as-Code
+gron  # flattens JSON to be greppable
 #groovy  # see near end
 #groovysdk  # see near end
+gtop
 hadolint
 haproxy
 helm
+hexyl  # hex command line viewer - https://github.com/sharkdp/hexyl
 htop
+httping  # ping-like tool for HTTP requests
+http-toolkit  # HTTP intercepting debugger
 hub
-#hugo  # static website generator - https://gohugo.io/getting-started/quick-start/
+hugo  # static website generator - https://gohugo.io/getting-started/quick-start/
 id3v2  # mp3 tag cli editor
 #id3lib  # mp3 tag manipulation
 iftop
 imagemagick
+#inetutils  # GNU telnet, ftp, tftp, inetd, syslog, ping, traceroute, whois - prefixed with g
+infracost  # Cloud cost estimator for Terraform code
 ipcalc
+ioping  # monitor I/O latency in real-time
 iperf
 ipython
+#isc-dhcp  # the classic DHCP daemon, use for bootstrapping PXE installing Debian Linux or similar as per https://github.com/HariSekhon/Knowledge-Base/blob/main/dhcp.md
+intellij-idea-ce
 jsonlint  # in brew-packages.txt
 jenkins-x/jx/jx
+jnv  # json interactive viewer (pipe kubectl into it)
 #jpeg
 #jq  # in brew-packages.txt
+jruby
 jython
+k3d  # wrapper for k3s
+k6
+kind  # Kubernetes in Docker
 kompose
+knative/client/kn
+knative-sandbox/kn-plugins/quickstart
+kops
+kubecolor
 #kubectl  # old version, download binary or use GCloud SDK version
 kubernetes-cli
+kubeseal  # Bitnami Sealed Secrets
+kubevious  # validation linter for Kubernetes yaml
 kustomize
 #lame  # mp3 encoder
 launchctl-completion
@@ -123,33 +190,47 @@ launchctl-completion
 #libtiff
 #libusb
 lolcat
+luacheck  # lua script linting
 lynx
 #lzo
 #lz4
+m4  # classic macro processor
 #makedepend  # Makefile dependencies for C
+mas  # command line interface to the App Store to install/upgrade apps
 #maven
 maven-completion
 maven-shell
 #md5sha1sum  # clashes with coreutils
 media-info  # read mp3 tags
 mercurial
+#mermaid-cli  # old version - see instead https://github.com/HariSekhon/Knowledge-Base/blob/main/mermaidjs.md
+ubuntu/microk8s/microk8s
 midnight-commander
+minio
 #mitmproxy
+mkcert  # simple tool to make locally trusted development certificates - used by spotify_api_token.sh for https localhost callback
 mosh
 # nagios-plugins clashes
 monitoring-plugins
 mplayer
 mpssh
+mpv
 mtr
 mycli
 mysql
+ncdu  # ncurse disk usage - interactive disk space analysis
+neovim
 netcat
 ngrep
 nmap
 #node  # NodeJS
+nss
+#ntfstool  # for accessing NTFS volumes - unsigned requires Security approval and installing kernel driver
 #octave
-#openjpeg
 #oniguruma  # regex library
+#openjpeg
+openai-whisper
+#osxfuse  # required to be installed before 'ext4fuse' package
 p7zip
 packer-completion
 pandoc
@@ -160,12 +241,16 @@ parquet-tools
 perltidy
 pgcli
 pgformatter
+pigz  # parallel gzip
 pinentry
 pinentry-mac
 pip-completion
+pipenv
 pipx
 #pk11-kit
+pluto  # by FairwindsOps - detect outdated Kubernetes API objects
 postgresql
+pre-commit
 prestosql
 #protobuf
 pssh
@@ -176,12 +261,17 @@ pwgen
 #python  # in brew-packages.txt
 #pipenv
 #pyenv
+qemu
 r
+rancher-cli
 rbenv
+#rclone  # like rsync for S3 / GCS / SFTP / HDFS / SMB / HTTP
 rdesktop
 #redis
 #readline  # in brew-packages.txt
-rlwrap
+#restic  # backup program, tracks versions, backups to a local repo dir / SFTP / Restic server http(s) / S3 / GCS / MinIO / Rclone
+rlwrap  # gives readline wrapping support (commonly used with Oracle SQL*Plus)
+rsync  # newer rsync 3 than macOS rsync 2 - has new/different switches
 #rtmpdump
 ruby  # Mac ruby is too old to install Travis CI
 ruby-completion
@@ -190,46 +280,79 @@ ruby-completion
 screen  # get newer version for -Q switch, will use different sockets directory
 s3cmd
 scalastyle
+scc  # Succinct Code Counter - lines and Cocomo man effort estimate
 semgrep
+siege
+#six  # Python 2 to 3 conversion
 skaffold
 skopeo
 shpotify
+smartmontools
 snappy
 sonar-completion
 sonar-scanner
 sqlite
+sqlfluff  # linter
+sqlparse  # SQL reformatter
+squirrelsql
 ssllabs-scan
 sslscan
 ssh-copy-id
+stats  # fancier Activity Monitor
+#steghide  # looks like it's been removed
 #subversion  # pulls in brew version of Perl which breaks library installations due to this horror - https://github.com/toddr/IO-Tty/issues/25
+switchaudio-osx
+tcpping  # ping-like tool for TCP requests
+#terraform  # use tfenv with direnv to match your company's version and avoid accidentally upgrading the tfstate
+#terragrunt  # old, use install/install_terragrunt.sh to grab latest version to ~/bin instead
+#terraformer  # large, install only if actively using
 tfenv  # Terraform version manager inspired by rbenv
+tflint # Terraform linter
 tfsec  # Terraform static analysis by AquaSec
 thrift
 tidy-html5
-tree
 tmux
+tokei  # lines of code counter
+tree
+ttygif  # records terminal and creates gif
+#ttyrec  # pulled as dependency of ttygif
 urlview  # used by tmux plugin tmux-urlview, and also my advanced .vimrc
 unix2dos
-unrar
+#unrar  # no longer available
 utimer
 vagrant-completion
 vault  # Hashicorp
-#vim  # unneeded as vim is already installed - pulls in brew version of Perl which breaks library installations due to this horror - https://github.com/toddr/IO-Tty/issues/25
-#vscode
+# old Mac vim not
+vim  # Mac's vim not syntax highlighting Bash properly on macOS Big Sur 11.7 https://github.com/vim/vim/issues/11937 - watch brew version pulls in a lot of dependencies though including Perl which breaks library installations due to this horror - https://github.com/toddr/IO-Tty/issues/25
+vint  # vim script linter (for me to lint my big .vimrc)
+#visual-studio-code  # the package formerly known as vscode
+wakatime-cli
 watch
+watchexec  # run commands when files change
 #wget  # in brew-packages.txt
 #whois  # in brew-packages.txt
+#windows-app  # replaces microsoft-remote-desktop
+wireshark  # only install tshark CLI, must --cask for Wireshark
+#webp
 #x264
 #x265
+xclip
+xcodesorg/made/xcodes
+xmlstarlet  # XML command line utilities such as html decoding, used by htmldecode.sh
 #xvid
 xz
 yamllint  # in brew-packages.txt
+#yara
 youtube-dl
+#zeromq
+#zlib
+#zstd
+zoom
 zsh
 
 # runtime only
 #groovy
-# GDK - use SDKMan instead (setup/install_sdkman.sh)
+# GDK - use SDKMan instead (install/install_sdkman.sh)
 #groovysdk
 # done by SDKMan now
 #maven

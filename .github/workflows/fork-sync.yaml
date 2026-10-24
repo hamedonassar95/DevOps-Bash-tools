@@ -11,10 +11,16 @@
 #  https://www.linkedin.com/in/HariSekhon
 #
 
+# ============================================================================ #
+#                               F o r k   S y n c
+# ============================================================================ #
+
+# For a fork of the original repo, activate to keep it up to date via straight GitHub sync to the default branch
+
 ---
 name: Fork Sync
 
-on:
+on:  # yamllint disable-line rule:truthy
   workflow_dispatch:
     inputs:
       debug:
@@ -28,7 +34,7 @@ permissions:
   contents: write
 
 concurrency:
-  group: ${{ github.ref }}-${{ github.workflow }}
+  group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: false
 
 jobs:

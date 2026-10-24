@@ -18,6 +18,8 @@
 #                  B a s h   G e n e r a l   F u n c t i o n s
 # ============================================================================ #
 
+# Functions that haven't been split off into other more specific libraries
+
 bash_tools="${bash_tools:-$(dirname "${BASH_SOURCE[0]}")/..}"
 
 # shellcheck disable=SC1090,SC1091
@@ -39,10 +41,6 @@ retmode(){
     fi
 }
 
-cddir(){
-    cd "$(dirname "$1")" || return 1
-}
-
 jq(){
     command jq -CS "$@"
 }
@@ -52,31 +50,21 @@ envg(){
     eval grep -i "$(for arg; do echo -n " -e '$arg'"; done)"
 }
 
-new(){
-    if [ $# -eq 2 ]; then
-        title "${2#modules/}"
-    else
-        title "$1"
-    fi
-    command new.pl "$@"
-    title "$LAST_TITLE"
-}
-
 # generates bash autocompletion if not available
 # sources bash autocompletion from local standardized path
 autocomplete(){
     local name="$1"
     shift || :
     if [ -f ~/.bash.autocomplete.d/"$name.sh" ]; then
-        # shellcheck disable=SC1090
+        # shellcheck disable=SC1090,SC1091
         . ~/.bash.autocomplete.d/"$name.sh"
     elif type -P "$name" &>/dev/null; then
         # doesn't work
-        # shellcheck disable=SC1090
+        # shellcheck disable=SC1090,SC1091
         #source <(command "$name" completion bash)
         mkdir -pv ~/.bash.autocomplete.d
         command "$name" completion "$@" bash > ~/.bash.autocomplete.d/"$name.sh"
-        # shellcheck disable=SC1090
+        # shellcheck disable=SC1090,SC1091
         . ~/.bash.autocomplete.d/"$name.sh"
     fi
 }
@@ -89,27 +77,74 @@ pg(){
     grep -v grep
 }
 
-copy_to_clipboard(){
-    if isMac; then
-        cat | pbcopy
-    elif isLinux; then
-        cat | xclip
-    else
-        echo "ERROR: OS is not Darwin/Linux"
-        return 1
-    fi
+pstg(){
+    # want splitting of options
+    # shellcheck disable=SC2086
+    pstree |
+    grep -5 -i --color=always "$@" |
+    less $LESS
 }
+
+# externalized to copy_to_clipboard.sh script
+#copy_to_clipboard(){
+#    if is_mac; then
+#        cat | pbcopy
+#    elif is_linux; then
+#        cat | xclip
+#    else
+#        echo "ERROR: OS is not Darwin/Linux"
+#        return 1
+#    fi
+#}
 
 unalias clip &>/dev/null || :
 # args are optional
 # shellcheck disable=SC2120
 clip(){
     if [ $# -gt 0 ]; then
-        copy_to_clipboard < "$1"
+        copy_to_clipboard.sh < "$1"
     else
-        copy_to_clipboard
+        copy_to_clipboard.sh
     fi
 }
+
+dle(){
+    if [[ "$PWD" =~ $HOME(/Downloads)?$ ]]; then
+        echo "Switching to $HOME/Downloads/YouTube"
+        mkdir -p -v ~/Downloads/YouTube
+        pushd ~/Downloads/YouTube || return 1
+        if [ -f .envrc ]; then
+            eval "$(direnv export bash)"
+        fi
+    fi
+    while true; do
+        if BACKGROUND_VIDEO=1 youtube_download_video.sh "$@"; then
+            # doesn't persist past a pause/unpause,
+            # and this starts playing which we don't want which is why it's backgrounded
+            #osascript -e 'tell application "QuickTime Player" to set rate of document 1 to 2' &&
+            break
+        fi
+        local sleep_secs="$((RANDOM % 300))"
+        echo "Sleeping for $sleep_secs secs before retrying..."
+        sleep "$sleep_secs"
+    done
+    exit
+}
+dlq(){
+    youtube_download_queue_add.sh "$@"
+}
+dlp(){
+    if [[ "$PWD" =~ $HOME(/Downloads(/Transmission)?)?$ ]]; then
+        echo "Switching to $HOME/Downloads/YouTube"
+        mkdir -p -v ~/Downloads/YouTube
+        pushd ~/Downloads/YouTube || return 1
+        if [ -f .envrc ]; then
+            eval "$(direnv export bash)"
+        fi
+    fi
+    youtube_download_queue_process.sh
+}
+alias ytp="cd ~/Downloads/YouTube && ./play.sh"
 
 deccp(){
     # shellcheck disable=SC2119
@@ -134,10 +169,13 @@ checkprog(){
     fi
 }
 
-dum(){
-    du -max "${@:-.}" |
-    sort -k1n |
-    tail -n 10000
+function count() {
+    local total="$1"
+    for ((i = total; i > 0; i--)); do
+        sleep 1
+        printf "Time remaining %d secs\r" "$i"
+    done
+    bell
 }
 
 typer(){
@@ -159,15 +197,6 @@ typer(){
     done
 }
 
-lld(){
-    {
-        local target="$1"
-        ls -ld "$target"
-        [ "$target" = "/" ] && return
-        lld "$(dirname "$target")"
-    } | column -t
-}
-
 # shellcheck disable=SC2120
 unquote(){
     sed '
@@ -176,43 +205,8 @@ unquote(){
     ' "$@"
 }
 
-bell_done(){
-    eval "$@"
-    print '\a'
-}
-
-resolve_symlinks(){
-    local readlink=readlink
-    if isMac; then
-        if type -P greadlink &>/dev/null; then
-            readlink=greadlink
-        else
-            readlink=""
-        fi
-    fi
-    if [ -z "$readlink" ]; then
-        echo "$*"
-        return
-    fi
-    for x in "$@"; do
-        "$readlink" -m "$x"
-    done
-}
-
-# for all files listed, return the highest directory - useful for pushd to the right git root following symlinks before doing git diff and commmits, used by gitu() in git.sh which is called in inline vimrc 'nmap ;;'
-basedir(){
-    local dir_list=""
-    for x in "$@"; do
-        dir_list="$dir_list $(dirname "$x")"
-    done
-    # assumes they share the same base and that the shortest one will be right - could put more comparison here and return error if not
-    local output
-    output="$(tr ' ' '\n'  <<< "$dir_list" | grep -v '^[[:space:]]*$' | sort | head -n 1)"
-    if [ -z "$output" ]; then
-        echo "ERROR: empty basedir"
-        return 1
-    fi
-    echo "$output"
+bell(){
+    echo -e '\a'
 }
 
 toLower(){
@@ -238,16 +232,6 @@ normalize_spaces(){
 
 remove_last_column(){
     awk '{$NF=""; print $0}'
-}
-
-strip_basedirs(){
-    local basedir="$1"
-    shift
-    while read -r filename; do
-        filename="${filename#${basedir%%/}/}"
-        filename="${filename##/}"
-        echo "$filename"
-    done <<< "$@"
 }
 
 user(){
@@ -315,7 +299,7 @@ ptop(){
     #pids="$(pgrep -f "$(sed 's/ /|/g' <<< "$*")")"
     pids="$(pgrep -f "${*// /|}")"
     local pid_args=()
-    if isMac; then
+    if is_mac; then
         # shellcheck disable=SC2001
         read -r -a pid_args <<< "$(sed 's/^/-pid /' <<< "$pids")"
     else
@@ -342,32 +326,6 @@ topcommands(){
 }
 alias topcmds=topcommands
 
-# easy quick find recursing down current directory tree
-#
-#f(){
-#    [ -n "$*" ] || { echo "usage: f <partial_pattern>"; return 1; }
-#    pattern=""
-#    for x in $*; do
-#        pattern+="*$x"
-#    done
-#    pattern+="*"
-#    find -L . -iname "$pattern"
-#}
-#
-# shellcheck disable=SC2032
-f(){
-    local grep=""
-    # shellcheck disable=SC2013
-    for x in "${@//[^A-Za-z0-9_-]/.}"; do
-        if [[ "$x" =~ [a-zA-Z0-9._-] ]]; then
-            grep="$grep | grep -i --color=auto $x"
-        fi
-    done
-    # times about the same
-    #eval find -L . -type f -iname "\*$1\*" $grep
-    eval find -L . -type f "$grep"
-}
-
 dgrep(){
     local pattern="$*"
     # auto-exported in aliases.sh when iterating git repos
@@ -393,48 +351,8 @@ foreachfile(){
         [ -p "$file"   ] && continue
         [ -S "$file"   ] && continue
         [ -L "$file"   ] && continue
-        eval "$@"
+        "$@"
     done
-}
-
-# vim which
-# vw() moved to vim.sh
-
-# file which
-fw(){
-    local path
-    for x in "$@"; do
-        path="$(which "$x")"
-        if [ -z "$path" ]; then
-            return 1
-        fi
-        file "$path"
-        echo
-        # shellcheck disable=SC2086
-        ls -l $LS_OPTIONS "$path"
-    done
-}
-
-cdwhich(){
-    local path
-    local directory
-    if [ $# -ne 1 ]; then
-        echo "usage: cdwhich programname"
-        return 1
-    fi
-    path="$(which "$1")"
-    if [ -z "$path" ]; then
-        echo
-        echo "$1 could not be found in \$PATH"
-        return 1
-    fi
-    directory="$(dirname "$path")"
-    if [ -z "$directory" ]; then
-        echo "cannot find directory for $path"
-        return 2
-    fi
-    echo "$directory"
-    cd "$directory" || return 1
 }
 
 add_etc_host(){
@@ -444,8 +362,6 @@ add_etc_host(){
     $sudo grep -q "^$host_line" /etc/hosts ||
     $sudo echo "$host_line" >> /etc/hosts
 }
-
-# vihosts() moved to vim.sh
 
 proxy(){
     export proxy_host="${1:-${proxy_host:-localhost}}"
@@ -469,32 +385,6 @@ proxy(){
     export SBT_OPTS="$JAVA_OPTS"
 }
 
-readlink(){
-    if isMac; then
-        greadlink "$@"
-    else
-        command readlink "$@"
-    fi
-}
-
-# see also readlink (beware differs between Linux and Mac)
-# this works on imaginary paths
-abspath(){
-    if [ -z "$1" ]; then
-        echo "NO PATH GIVEN!"
-        return 1
-    fi
-    # shellcheck disable=SC2001
-    sed 's@^\./@'"$PWD"'/@;
-         s@^\([^\./]\)@'"$PWD"'/\1@;
-         s@^\.\./@'"${PWD%/*}"'/@;
-         s@/../@/@g;
-         s@/\./@/@g;
-         s@\(.*\/?\)\.\./?$@\1/@;
-         s@//@/@g;
-         s@/$@@;' <<< "$1"
-}
-
 wcbash(){
     # $github defined in aliases.sh
     # shellcheck disable=SC2154
@@ -510,7 +400,7 @@ wcbash(){
 }
 
 epoch2date(){
-    if isMac; then
+    if is_mac; then
         date -r "$1"
     else
         date -d "@$1"
@@ -526,7 +416,7 @@ pdf(){
         echo "file not found: $1"
         return 1
     fi
-    if isMac; then
+    if is_mac; then
         open "$1"
         return $?
     fi
@@ -560,7 +450,7 @@ alias tstamp=timestamp
 
 timestampcmd(){
     local output
-    output="$(eval "$@" 2>&1)"
+    output="$("$@" 2>&1)"
     timestamp "$output"
 }
 alias tstampcmd=timestampcmd
@@ -580,7 +470,7 @@ bak(){
             sleep 1
             bakfile="$filename.bak.$(date '+%F_%T' | sed 's/:/-/g')"
         done
-        cp -av "$filename" "$bakfile"
+        cp -av -- "$filename" "$bakfile"
     done
 }
 
@@ -597,7 +487,7 @@ unbak(){
         # don't use -t switch, we want the newest by name, not one that got touched recently
         bakfile="$(find "$dirname" -path "*/$filename.bak.*" -o -path "*/$filename.*.bak" 2>/dev/null | sort | tail -n 1)"
         echo "restoring $bakfile"
-        cp -av "$bakfile" "$dirname/$filename"
+        cp -av -- "$bakfile" "$dirname/$filename"
     done
 }
 
@@ -611,7 +501,7 @@ orig(){
         [ -f "$filename.org" ] && { echo "$filename.orig already exists, aborting..."; return 1; }
     done
     for filename in "$@"; do
-        cp -av "$filename" "$filename.orig"
+        cp -av -- "$filename" "$filename.orig"
     done
 }
 
@@ -631,7 +521,7 @@ unorig(){
         fi
     done
     for filename in "$@"; do
-        cp -av "$filename" "${filename%.orig}"
+        cp -av -- "$filename" "${filename%.orig}"
     done
 }
 
@@ -640,7 +530,7 @@ unorig(){
 strLastIndexOf(){
     local str="$1"
     local substr="$2"
-    local remainder="${str##*$substr}"
+    local remainder="${str##*"$substr"}"
     local lastIndex=$((${#str} - ${#remainder}))
     echo $lastIndex
 }
@@ -660,13 +550,6 @@ progs2(){
     # shellcheck disable=SC2033
     find "${@:-.}" -type f -o -type l |
     grep -Evf ~/code_regex_exclude.txt
-}
-
-findpy(){
-    # not passing function f()
-    # shellcheck disable=SC2033
-    find "${@:-.}" -type f -iname '*.py' -o -type f -iname '*.jy' |
-    grep -vf ~/code_regex_exclude.txt
 }
 
 # ============================================================================ #

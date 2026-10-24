@@ -8,7 +8,8 @@
 #
 #  License: see accompanying Hari Sekhon LICENSE file
 #
-#  If you're using my code you're welcome to connect with me on LinkedIn and optionally send me feedback to help steer this or other code I publish
+#  If you're using my code you're welcome to connect with me on LinkedIn
+#  and optionally send me feedback to help steer this or other code I publish
 #
 #  https://www.linkedin.com/in/HariSekhon
 #
@@ -35,7 +36,10 @@ sudo=""
 if [ "$(uname -s)" = Darwin ]; then
     echo "Bootstrapping on Mac OS X:  $repo"
     if ! type brew >/dev/null 2>&1; then
-        curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install | $sudo ruby
+        curl -sSLf \
+             --proto "=https"
+             https://raw.githubusercontent.com/Homebrew/install/master/install |
+        $sudo ruby
     fi
 elif [ "$(uname -s)" = Linux ]; then
     echo "Bootstrapping on Linux:  $repo"
@@ -45,11 +49,11 @@ elif [ "$(uname -s)" = Linux ]; then
         if [ -n "${CI:-}" ]; then
             export DEBIAN_FRONTEND=noninteractive
         fi
-        opts=""
+        opts="-o DPkg::Lock::Timeout=1200"
         if [ -z "${PS1:-}" ]; then
-            opts="-qq"
+            opts="$opts -qq"
         fi
-        $sudo apt-get update $opts
+        $sudo apt-get update  $opts
         $sudo apt-get install $opts -y git make curl wget --no-install-recommends
     elif type yum >/dev/null 2>&1; then
         if grep -qi 'NAME=.*CentOS' /etc/*release; then
@@ -81,4 +85,6 @@ else
     fi
 fi
 
-make install
+if [ -z "${NO_MAKE:-}" ]; then
+    make
+fi

@@ -11,10 +11,16 @@
 #  https://www.linkedin.com/in/HariSekhon
 #
 
+# ============================================================================ #
+#                              V a l i d a t i o n
+# ============================================================================ #
+
+# Run all custom validations against files in the repo
+
 ---
 name: Validation
 
-on:
+on:  # yamllint disable-line rule:truthy
   push:
     branches:
       - master
@@ -40,7 +46,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: ${{ github.ref }}-${{ github.workflow }}
+  group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:

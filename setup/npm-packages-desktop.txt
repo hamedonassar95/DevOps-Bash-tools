@@ -14,7 +14,9 @@
 
 # NodeJS desktop packages - one per line
 
+@mermaid-js/mermaid-cli
 codefresh
 js-yaml
 netlify-cli
 nodemon
+terminalizer

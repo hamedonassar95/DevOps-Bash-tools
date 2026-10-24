@@ -18,7 +18,7 @@ set -euo pipefail
 srcdir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 echo "Install XCode CLI tools"
-xcode-select --install
+xcode-select --install || :  # ignore if already installed
 
 run(){
     echo "Running $srcdir/$1"
@@ -28,19 +28,26 @@ run(){
     echo "================================================================================"
 }
 
+echo
+"$srcdir/shell_link.sh"
+
+# homebrew script must be first
 install_scripts="
+install_homebrew.sh
 install_ansible.sh
 install_diff-so-fancy.sh
 install_gcloud_sdk.sh
-install_homebrew.sh
 install_minikube.sh
 install_minishift.sh
-install_parquet-tools.sh
 install_sdkman.sh
 install_sdkman_all_sdks.sh
 install_terraform.sh
-install_travis.sh
+install_vundle.sh
 "
+# don't use this much any more
+#install_parquet-tools.sh
+# Legacy CI
+#install_travis.sh
 
 for x in $install_scripts; do
     run "$x"
@@ -48,5 +55,3 @@ done
 if [[ "$USER" =~ hari|sekhon ]]; then
     run install_github_ssh_key.sh
 fi
-echo
-"$srcdir/shell_link.sh"
