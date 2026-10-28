@@ -54,6 +54,7 @@ autossh
 #aws-iam-authenticator
 bash  # version 5, not old version 3 from Apple due to licensing
 #bash-completion  # slows down spawning new shells which I do frequently
+bat  # syntax highlighter
 #bazel
 bazelisk  # bazel wrapper downloader like mvnw/gradlew, addes 'bazel' to $PATH so conflicts with bazel package above
 brew-cask-completion
