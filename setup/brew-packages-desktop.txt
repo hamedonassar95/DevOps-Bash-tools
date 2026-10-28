@@ -236,6 +236,7 @@ packer-completion
 pandoc
 #parallel  # in brew-packages.txt
 parquet-tools
+#pastel  # generate, analyze, convert and manipulate colors
 #pcre
 #pcre2
 perltidy
