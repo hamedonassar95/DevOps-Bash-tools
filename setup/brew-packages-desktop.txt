@@ -36,6 +36,7 @@ https://raw.githubusercontent.com/jingweno/spotctl/master/Formula/spotctl.rb
 ack
 act  # runs GitHub Actions locally
 agg  # converts asciicast terminal recording to gif
+aider  # use online AI models against local files
 amazon-ecs-cli
 #amazon-sam-cli  # no longer found
 ansible
