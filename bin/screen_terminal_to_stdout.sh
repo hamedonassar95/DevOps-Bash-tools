@@ -23,7 +23,7 @@ srcdir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # shellcheck disable=SC2034,SC2154
 usage_description="
-Dumps the GNU Screen terminal output to stdout
+Dumps the GNU Screen terminal contents to stdout
 
 Retains the temp file if this environment variable is set to any value:
 
