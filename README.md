@@ -362,8 +362,10 @@ Top-level `.bashrc` and `.bash.d/` directory:
 - `random_select.sh` - selects one of given args at random. Useful for sampling, running randomized subsets of large test suites etc.
 - `random_number.sh` - prints a random integer between two integer arguments (inclusive)
 - `random_string.sh` - prints a random alphanumeric string of a given length
-- `screen_terminal_to_stdout.sh` - dumps the GNU Screen terminal output to stdout
-- `screen_terminal_to_clipboard.sh` - dumps the GNU Screen terminal output to a temp file and copies to clipboard for sharing & debugging purposes
+- `screen_buffer_to_stdout.sh` - dumps the GNU Screen copy buffer contents to stdout
+- `screen_buffer_to_clipboard.sh` - dumps the GNU Screen copy buffercontents to a temp file and copies to clipboard for sharing & debugging purposes
+- `screen_terminal_to_stdout.sh` - dumps the GNU Screen terminal contents to stdout
+- `screen_terminal_to_clipboard.sh` - dumps the GNU Screen terminal contents to a temp file and copies to clipboard for sharing & debugging purposes
 - `shields_embed_logo.sh` - base64 encodes a given icon file or url and prints the `logo=...` url parameter you need to add the [shields.io](https://shields.io/) badge url
 - `shorten_clipboard_text.sh` - shortens the text in clipboard to make social media comments shorter. Replaces `and` with `&` and crushes out multiple blank lines. I used this for LinkedIn comments due to the short 1250 character limit
 - `shorten_text_selection.sh` - shortens the selected text in the prior window. Faster way to use the above without having to copy and paste clipboard manually
@@ -1588,6 +1590,7 @@ Each of these three scripts creates an animated Git from running terminal comman
 - `youtube_download_queue_process.sh` - takes the next item from the download queue and calls `youtube_download_video.sh` on it
 - `video_to_720p_mp4` - converts one or more video files to 720p mp4 format using ffmpeg. Useful to make good trade-off of quality vs size for social media sharing
 - `video_to_480p_mp4` - symlink to above script converts to 480p mp4 format
+- `video_reencode_aac_audio.sh` - converts one or more video files to use the more compatible AAC audio format using ffmpeg. Necessary to upload to social media sites like X that don't accept audio formats like Opus (used in YouTube videos)
 - `vidopen.sh` - opens the given video file using whatever available tool is found on Linux or Mac
 
 See also [Knowledge Base notes for MultiMedia](https://github.com/HariSekhon/Knowledge-Base/blob/main/multimedia.md).
