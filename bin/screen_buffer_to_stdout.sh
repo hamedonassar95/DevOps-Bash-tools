@@ -51,10 +51,9 @@ if [ -z "${SCREEN_BUFFER_NO_DELETE_TEMPFILE:-}" ]; then
     trap_cmd "rm -f \"$tmpfile\""
 else
     timestamp "Dumping GNU Screen copy buffer contents to tempfile: $tmpfile"
+    echo >&2
 fi
 
 screen -X writebuf "$tmpfile"
-
-echo >&2
 
 cat "$tmpfile"
