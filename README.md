@@ -1588,6 +1588,7 @@ Each of these three scripts creates an animated Git from running terminal comman
 - `youtube_download_queue_process.sh` - takes the next item from the download queue and calls `youtube_download_video.sh` on it
 - `video_to_720p_mp4` - converts one or more video files to 720p mp4 format using ffmpeg. Useful to make good trade-off of quality vs size for social media sharing
 - `video_to_480p_mp4` - symlink to above script converts to 480p mp4 format
+- `video_reencode_aac_audio.sh` - converts one or more video files to use the more compatible AAC audio format using ffmpeg. Necessary to upload to social media sites like X that don't accept audio formats like Opus (used in YouTube videos)
 - `vidopen.sh` - opens the given video file using whatever available tool is found on Linux or Mac
 
 See also [Knowledge Base notes for MultiMedia](https://github.com/HariSekhon/Knowledge-Base/blob/main/multimedia.md).
