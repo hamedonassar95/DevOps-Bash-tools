@@ -34,7 +34,7 @@ Uses adjacent scripts:
 
 You can pass screen options as args, see screen_terminal_to_stdout.sh for details
 
-If you just want to copy GNU Screen's copy buffer to the system clipboard, you can use this:
+If you want to instead copy GNU Screen's copy buffer contents to the system clipboard, you can use this:
 
     screen_buffer_to_clipboard.sh
 "
