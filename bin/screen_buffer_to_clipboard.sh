@@ -23,7 +23,7 @@ srcdir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # shellcheck disable=SC2034,SC2154
 usage_description="
-Dumps the GNU Screen terminal output to a temp file and
+Dumps the GNU Screen copy buffer contents to a temp file and
 copies to clipboard for sharing & debugging purposes
 
 Uses adjacent scripts:
@@ -45,4 +45,4 @@ export SCREEN_BUFFER_NO_DELETE_TEMPFILE=1
 "$srcdir/screen_buffer_to_stdout.sh" "$@" |
 "$srcdir/copy_to_clipboard.sh"
 
-timestamp "Copied GNU Screen copy buffer to Clipboard"
+timestamp "Copied GNU Screen copy buffer contents to Clipboard"
