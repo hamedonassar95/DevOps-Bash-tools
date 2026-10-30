@@ -40,7 +40,7 @@ usage_args=""
 help_usage "$@"
 
 # indicate to screen_terminal_to_stdout.sh not to remove the term
-export SCREEN_COPY_NO_DELETE_TEMPFILE=1
+export SCREEN_BUFFER_NO_DELETE_TEMPFILE=1
 
 "$srcdir/screen_buffer_to_stdout.sh" "$@" |
 "$srcdir/copy_to_clipboard.sh"
