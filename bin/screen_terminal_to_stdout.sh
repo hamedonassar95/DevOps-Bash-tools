@@ -57,7 +57,7 @@ tmpfile="$(mktemp)"
 if [ -z "${SCREEN_TERMINAL_NO_DELETE_TEMPFILE:-}" ]; then
     trap_cmd "rm -f \"$tmpfile\""
 else
-    timestamp "Dumping GNU Screen terminal output to tempfile: $tmpfile"
+    timestamp "Dumping GNU Screen terminal contents to tempfile: $tmpfile"
     echo >&2
 fi
 
