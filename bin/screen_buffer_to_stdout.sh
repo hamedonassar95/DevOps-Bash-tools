@@ -23,7 +23,7 @@ srcdir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # shellcheck disable=SC2034,SC2154
 usage_description="
-Copies the GNU Screen terminal copy buffer output to stdout
+Dumps the GNU Screen terminal copy buffer output to stdout
 
 First use the standard Ctrl-[ mode to select the text to copy into the Screen copy buffer
 
