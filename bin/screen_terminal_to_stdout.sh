@@ -58,10 +58,9 @@ if [ -z "${SCREEN_TERMINAL_NO_DELETE_TEMPFILE:-}" ]; then
     trap_cmd "rm -f \"$tmpfile\""
 else
     timestamp "Dumping GNU Screen terminal output to tempfile: $tmpfile"
+    echo >&2
 fi
 
 screen -X hardcopy -h "$tmpfile" "$@"
-
-echo >&2
 
 cat "$tmpfile"
