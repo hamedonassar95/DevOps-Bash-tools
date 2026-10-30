@@ -25,7 +25,7 @@ srcdir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 usage_description="
 Converts one or more video files to use the more compatible AAC audio format using ffmpeg
 
-Necessary to upload to social media sites like X that don't accept audio formats like Opus (used by YouTube)
+Necessary to upload to social media sites like X that don't accept audio formats like Opus (used in YouTube videos)
 
 Tested on .mp4 files
 
