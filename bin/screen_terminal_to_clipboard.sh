@@ -51,4 +51,4 @@ export SCREEN_TERMINAL_NO_DELETE_TEMPFILE=1
 "$srcdir/screen_terminal_to_stdout.sh" "$@" |
 "$srcdir/copy_to_clipboard.sh"
 
-timestamp "Copied GNU Screen to Clipboard"
+timestamp "Copied GNU Screen terminal to Clipboard"
