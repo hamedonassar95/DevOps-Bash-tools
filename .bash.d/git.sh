@@ -838,34 +838,48 @@ gitrm(){
 }
 
 gitrename(){
+    local old="$1"
+    local new="$2"
     if [ $# -ne 2 ]; then
         echo "usage: gitrename <original_filename> <new_filename>"
         return 1
     fi
-    if [ -f "$2" ]; then
-        local file_already_exists=1
-        mv -iv -- "$2" "$2.tmp"
+    # if the target is a directory, then explicitly specify the path
+    # to prevent committing all uncommitted changes in that directory
+    if [ -d "$new" ]; then
+        new="$new/${old##*/}"
     fi
-    git mv -- "$1" "$2" &&
-    git commit -m "renamed $1 to $2" "$1" "$2"
+    if [ -f "$new" ]; then
+        local file_already_exists=1
+        mv -iv -- "$new" "$new.tmp"
+    fi
+    git mv -- "$old" "$new" &&
+    git commit -m "renamed $old to $new" "$old" "$new"
     if [ "${file_already_exists:-}" = 1 ]; then
-        mv -fv -- "$2.tmp" "$2"
+        mv -fv -- "$new.tmp" "$new"
     fi
 }
 
 gitmv(){
+    local old="$1"
+    local new="$2"
     if [ $# -ne 2 ]; then
         echo "usage: gitmv <original_filename> <new_filename>"
         return 1
     fi
-    if [ -f "$2" ]; then
-        local file_already_exists=1
-        mv -iv -- "$2" "$2.tmp"
+    # if the target is a directory, then explicitly specify the path
+    # to prevent committing all uncommitted changes in that directory
+    if [ -d "$new" ]; then
+        new="$new/${old##*/}"
     fi
-    git mv -- "$1" "$2" &&
-    git commit -m "moved $1 to $2" "$1" "$2"
+    if [ -f "$new" ]; then
+        local file_already_exists=1
+        mv -iv -- "$new" "$new.tmp"
+    fi
+    git mv -- "$old" "$new" &&
+    git commit -m "moved $old to $new" "$old" "$new"
     if [ "${file_already_exists:-}" = 1 ]; then
-        mv -fv -- "$2.tmp" "$2"
+        mv -fv -- "$new.tmp" "$new"
     fi
 }
 
