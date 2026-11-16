@@ -131,7 +131,10 @@ awkward URLs more nicely replaced with shields.io
 
 Fast, Advanced Systems Engineering, Automation, APIs, shorter CLIs, etc.
 
-Heavily used in many [GitHub repos](https://github.com/search?o=desc&q=user%3Aharisekhon+type%3Arepository&type=Repositories), dozens of [DockerHub builds](https://hub.docker.com/r/harisekhon) ([Dockerfiles](https://github.com/HariSekhon/Dockerfiles)) and 600+ [CI builds](https://harisekhon.github.io/CI-CD/).
+Heavily used for daily systems engineering and
+embedded in many [GitHub repos](https://github.com/search?o=desc&q=user%3Aharisekhon+type%3Arepository&type=Repositories),
+dozens of [DockerHub builds](https://hub.docker.com/r/harisekhon) ([Dockerfiles](https://github.com/HariSekhon/Dockerfiles))
+and 600+ [CI builds](https://harisekhon.github.io/CI-CD/).
 
 ## Summary
 
@@ -201,6 +204,21 @@ make
 ```
 
 `make install` sets your shell profile to source this repo. See [Individual Setup Parts](#individual-setup-parts) below for more install/uninstall options.
+
+## Debugging
+
+Setting the `DEBUG` environment variable to any non-blank value prints full stack debugging down through all scripts and libraries to every single step being executed.
+
+This is a _lot_ of output but is invaluable for developers and advanced systems administrators and engineers.
+
+You will almost certainly want to `tee` this to a log file for review in `less` or
+use a scrollback buffer in a terminal multiplexer like Screen or Tmux (configs provided for both under `configs/`).
+
+I use this a lot as this is a large non-trivial project that I use daily extensively for many years.
+
+```shell
+export DEBUG=1
+```
 
 ## Index
 
